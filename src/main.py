@@ -18,7 +18,7 @@ from src.workers.temporal_worker import start_temporal_worker
 
 
 # ================================== Functions ================================ #
-@hydra.main(config_path="/app/conf", config_name="config", version_base=None)
+@hydra.main(config_path="/app/conf/config", config_name="config", version_base=None)
 def main(cfg: DictConfig) -> None:
     """Main function orchestrated by Hydra.
 
@@ -37,8 +37,7 @@ def main(cfg: DictConfig) -> None:
         # Create FastAPI app
         app = create_app(cfg)
 
-        # Start Temporal worker in background
-        asyncio.create_task(start_temporal_worker(cfg))
+        # Note: Temporal worker should be run separately
 
         # Start FastAPI server
         import uvicorn

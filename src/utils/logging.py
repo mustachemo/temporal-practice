@@ -31,18 +31,18 @@ def setup_logger(
 
     # Console handler with Rich formatting
     if enable_rich:
+        rich_handler = RichHandler(
+            rich_tracebacks=True,
+            show_path=False,
+            markup=True,
+        )
         logger.add(
-            sys.stderr,
+            rich_handler,
             level=log_level,
             format="{message}",
             enqueue=True,
             backtrace=True,
             colorize=True,
-            handler=RichHandler(
-                rich_tracebacks=True,
-                show_path=False,
-                markup=True,
-            ),
         )
     else:
         logger.add(

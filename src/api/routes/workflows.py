@@ -18,6 +18,7 @@ from src.models.workflow import (
     ErrorResponse,
 )
 from src.services.temporal_service import get_temporal_client
+from src.workflows.simple_workflow import SimpleWorkflow
 
 # ================================== Router Setup ============================= #
 router = APIRouter(prefix="/workflows", tags=["workflows"])
@@ -49,8 +50,11 @@ async def start_workflow(
         )
 
         # Start workflow asynchronously
+        # Map workflow type string to actual workflow class
+        workflow_class = SimpleWorkflow  # For now, only support SimpleWorkflow
+
         workflow_handle = await client.start_workflow(
-            workflow_type=request.workflow_type,
+            workflow_class,
             args=[request.input_data],
             id=f"{request.workflow_type}_{request.user_id}_{datetime.now().timestamp()}",
             task_queue="workflow-task-queue",

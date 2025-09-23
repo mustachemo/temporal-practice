@@ -1,8 +1,8 @@
 defaults:
-  - app: app
-  - temporal: temporal
-  - database: database
-  - logging: logging
+  - app
+  - temporal
+  - database
+  - logging
   - api
   - _self_
 
