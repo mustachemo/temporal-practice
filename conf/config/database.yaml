@@ -6,7 +6,7 @@ database:
     max_overflow: 20
     pool_timeout: 30
     pool_recycle: 3600
-  
+
   # Redis for caching
   redis:
     url: "redis://localhost:6379/0"
@@ -14,7 +14,7 @@ database:
     socket_timeout: 5
     socket_connect_timeout: 5
     retry_on_timeout: true
-  
+
   # Connection settings
   connection:
     echo: false

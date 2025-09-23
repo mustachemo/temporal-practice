@@ -3,14 +3,14 @@ temporal:
     host: "localhost"
     port: 7233
     namespace: "default"
-  
+
   # Worker configuration
   worker:
     task_queue: "workflow-task-queue"
     max_concurrent_activities: 10
     max_concurrent_workflows: 10
     max_concurrent_local_activities: 10
-  
+
   # Workflow configuration
   workflow:
     execution_timeout: "1h"
@@ -21,7 +21,7 @@ temporal:
       maximum_interval: "60s"
       maximum_attempts: 3
       backoff_coefficient: 2.0
-  
+
   # Activity configuration
   activity:
     start_to_close_timeout: "5m"

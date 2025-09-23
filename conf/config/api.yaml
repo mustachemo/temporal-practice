@@ -2,34 +2,34 @@ api:
   title: "Temporal Workflow API"
   description: "API for managing Temporal workflows"
   version: "1.0.0"
-  
+
   # Server settings
   server:
     host: "0.0.0.0"
     port: 8000
     reload: false
     workers: 1
-  
+
   # CORS settings
   cors:
     allow_origins: ["*"]
     allow_credentials: true
     allow_methods: ["*"]
     allow_headers: ["*"]
-  
+
   # Rate limiting
   rate_limit:
     enabled: true
     requests_per_minute: 100
     burst_size: 20
-  
+
   # Authentication
   auth:
     enabled: true
     secret_key: ${oc.env:SECRET_KEY,default-secret-key}
     algorithm: "HS256"
     access_token_expire_minutes: 30
-  
+
   # Documentation
   docs:
     enabled: true
