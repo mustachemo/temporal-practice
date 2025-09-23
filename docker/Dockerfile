@@ -22,6 +22,11 @@ COPY conf/ ./conf/
 # Production stage
 FROM python:3.11-slim as production
 
+# Install runtime dependencies
+RUN apt-get update && apt-get install -y \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
 # Create non-root user
 RUN groupadd -r appuser && useradd -r -g appuser appuser
 

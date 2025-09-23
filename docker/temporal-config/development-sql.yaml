@@ -1,0 +1,19 @@
+system.forceSearchAttributesCacheRefreshOnRead:
+  - value: true
+  - constraints: {}
+
+system.enableReadFromClosedExecutionV2:
+  - value: true
+  - constraints: {}
+
+system.advancedVisibilityWritingMode:
+  - value: "on"
+  - constraints: {}
+
+system.enableCrossNamespaceCommands:
+  - value: true
+  - constraints: {}
+
+system.enableReadFromClosedExecutionV2:
+  - value: true
+  - constraints: {}

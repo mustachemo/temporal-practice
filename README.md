@@ -85,7 +85,7 @@ temporal-practice/
 - Docker and Docker Compose
 - Git
 
-### Installation
+### Option 1: Docker Compose (Recommended)
 
 1. **Clone the repository**
    ```bash
@@ -93,7 +93,46 @@ temporal-practice/
    cd temporal-practice
    ```
 
-2. **Install dependencies**
+2. **Start all services**
+   ```bash
+   make docker-up-build
+   ```
+
+3. **Access the services**
+   - Temporal UI: http://localhost:8080
+   - FastAPI API: http://localhost:8000
+   - API Docs: http://localhost:8000/docs
+
+### Option 2: Local Development
+
+1. **Clone the repository**
+   ```bash
+   git clone <repository-url>
+   cd temporal-practice
+   ```
+
+2. **Setup development environment**
+   ```bash
+   make dev-setup
+   ```
+
+3. **Start core services**
+   ```bash
+   make dev-start
+   ```
+
+4. **Run the application locally**
+   ```bash
+   # Terminal 1: API Server
+   make run-dev
+
+   # Terminal 2: Worker
+   make run-worker
+   ```
+
+### Option 3: Manual Setup
+
+1. **Install dependencies**
    ```bash
    # Using uv (recommended)
    uv pip install -e ".[dev]"
@@ -102,12 +141,12 @@ temporal-practice/
    pip install -e ".[dev]"
    ```
 
-3. **Start infrastructure services**
+2. **Start infrastructure services**
    ```bash
    make run-docker
    ```
 
-4. **Run the application**
+3. **Run the application**
    ```bash
    # Start the API server
    make run-dev
