@@ -19,24 +19,24 @@ graph TB
     subgraph "Client Layer"
         A[Web Client] --> B[FastAPI API]
     end
-    
+
     subgraph "Application Layer"
         B --> C[Workflow Service]
         C --> D[Temporal Client]
     end
-    
+
     subgraph "Workflow Engine"
         D --> E[Temporal Server]
         E --> F[Workflow Workers]
         F --> G[Activities]
     end
-    
+
     subgraph "Data Layer"
         G --> H[Database]
         G --> I[External APIs]
         G --> J[File System]
     end
-    
+
     subgraph "Infrastructure"
         K[Docker Compose]
         L[Redis Cache]
@@ -97,7 +97,7 @@ temporal-practice/
    ```bash
    # Using uv (recommended)
    uv pip install -e ".[dev]"
-   
+
    # Or using pip
    pip install -e ".[dev]"
    ```
@@ -111,7 +111,7 @@ temporal-practice/
    ```bash
    # Start the API server
    make run-dev
-   
+
    # In another terminal, start the worker
    make run-worker
    ```

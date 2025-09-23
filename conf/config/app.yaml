@@ -1,0 +1,19 @@
+app:
+  name: "temporal-workflow-service"
+  version: "1.0.0"
+  description: "Temporal workflow service with FastAPI"
+  
+  # Feature flags
+  features:
+    enable_metrics: true
+    enable_tracing: true
+    enable_rate_limiting: true
+    enable_authentication: true
+  
+  # Application settings
+  settings:
+    debug: false
+    reload: false
+    workers: 1
+    max_requests: 1000
+    timeout: 30
