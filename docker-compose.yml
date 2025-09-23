@@ -1,9 +1,7 @@
-version: '3.8'
-
 services:
   # PostgreSQL Database
   postgresql:
-    image: postgres:15-alpine
+    image: postgres:17-alpine
     container_name: temporal-postgresql
     environment:
       POSTGRES_DB: temporal
@@ -25,13 +23,13 @@ services:
 
   # Temporal Server
   temporal:
-    image: temporalio/auto-setup:1.18.0
+    image: temporalio/auto-setup:1.28.1
     container_name: temporal-server
     depends_on:
       postgresql:
         condition: service_healthy
     environment:
-      - DB=postgresql
+      - DB=postgres12
       - DB_PORT=5432
       - POSTGRES_USER=temporal
       - POSTGRES_PWD=temporal
@@ -54,7 +52,7 @@ services:
 
   # Temporal UI
   temporal-ui:
-    image: temporalio/ui:2.21.3
+    image: temporalio/ui:2.40.1
     container_name: temporal-ui
     depends_on:
       - temporal
@@ -68,7 +66,7 @@ services:
 
   # Redis (for caching and session storage)
   redis:
-    image: redis:7-alpine
+    image: redis:8-alpine
     container_name: temporal-redis
     ports:
       - "6379:6379"

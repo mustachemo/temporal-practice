@@ -133,6 +133,7 @@ async def process_data_activity(parameters: Dict[str, Any]) -> Dict[str, Any]:
 
     # Simulate some processing
     from datetime import datetime, timezone
+
     processed_data = {
         "original": parameters,
         "processed_at": datetime.now(timezone.utc).isoformat(),
@@ -156,6 +157,7 @@ async def store_data_activity(processed_data: Dict[str, Any]) -> Dict[str, Any]:
 
     # Simulate storage
     from datetime import datetime, timezone
+
     storage_id = f"storage_{datetime.now(timezone.utc).timestamp()}"
 
     return {

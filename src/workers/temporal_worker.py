@@ -3,11 +3,12 @@
 # ================================== Imports ================================== #
 # Standard Library
 import asyncio
+import os
 from typing import Any
 
 # Third-party
 from temporalio.client import Client
-from temporalio.worker import Worker
+from temporalio.worker import Worker, UnsandboxedWorkflowRunner
 from omegaconf import DictConfig
 from loguru import logger
 
@@ -31,8 +32,11 @@ async def start_temporal_worker(cfg: DictConfig) -> None:
         logger.info("Starting Temporal worker")
 
         # Connect to Temporal server
+        temporal_address = os.getenv(
+            "TEMPORAL_HOST", f"{cfg.temporal.server.host}:{cfg.temporal.server.port}"
+        )
         client = await Client.connect(
-            f"{cfg.temporal.server.host}:{cfg.temporal.server.port}",
+            temporal_address,
             namespace=cfg.temporal.server.namespace,
         )
 
@@ -47,7 +51,7 @@ async def start_temporal_worker(cfg: DictConfig) -> None:
                 store_data_activity,
             ],
             max_concurrent_activities=cfg.temporal.worker.max_concurrent_activities,
-            max_concurrent_workflows=cfg.temporal.worker.max_concurrent_workflows,
+            workflow_runner=UnsandboxedWorkflowRunner(),
         )
 
         logger.info("Temporal worker configured and starting")

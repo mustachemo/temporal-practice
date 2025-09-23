@@ -38,6 +38,7 @@ COPY --from=builder /usr/local/bin /usr/local/bin
 # Copy application code
 COPY --from=builder /app/src ./src
 COPY --from=builder /app/conf ./conf
+COPY --from=builder /app/scripts ./scripts
 
 # Create necessary directories
 RUN mkdir -p logs outputs && \

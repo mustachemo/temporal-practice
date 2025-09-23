@@ -10,12 +10,17 @@ from omegaconf import DictConfig
 from loguru import logger
 
 # Local Application
+import sys
+import os
+
+sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
+
 from src.workers.temporal_worker import run_worker_standalone
 from src.utils.logging import setup_logger
 
 
 # ================================== Functions ================================ #
-@hydra.main(config_path="../conf", config_name="config", version_base=None)
+@hydra.main(config_path="/app/conf/config", config_name="config", version_base=None)
 def main(cfg: DictConfig) -> None:
     """Main function to run the Temporal worker.
 
