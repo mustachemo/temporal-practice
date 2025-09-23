@@ -17,14 +17,15 @@ class WorkflowRequest(BaseModel):
     input_data: Dict[str, Any] = Field(..., description="Input data for the workflow")
     user_id: str = Field(..., description="ID of the user initiating the workflow")
 
-    class Config:
-        schema_extra = {
+    model_config = {
+        "json_schema_extra": {
             "example": {
                 "workflow_type": "data_processing",
                 "input_data": {"file_path": "/path/to/file", "options": {}},
                 "user_id": "user_123",
             }
         }
+    }
 
 
 class WorkflowResponse(BaseModel):

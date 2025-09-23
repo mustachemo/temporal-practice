@@ -2,7 +2,7 @@
 
 # ================================== Imports ================================== #
 # Standard Library
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict, Any
 
 # Third-party
@@ -23,7 +23,7 @@ async def health_check() -> Dict[str, Any]:
     """
     return {
         "status": "healthy",
-        "timestamp": datetime.utcnow().isoformat(),
+        "timestamp": datetime.now(timezone.utc).isoformat(),
         "service": "temporal-workflow-service",
     }
 
@@ -42,7 +42,7 @@ async def detailed_health_check() -> Dict[str, Any]:
         # Check system health
         health_status = {
             "status": "healthy",
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "service": "temporal-workflow-service",
             "version": "1.0.0",
             "checks": {

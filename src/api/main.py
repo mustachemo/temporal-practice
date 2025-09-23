@@ -2,6 +2,7 @@
 
 # ================================== Imports ================================== #
 # Standard Library
+from contextlib import asynccontextmanager
 from typing import Any
 
 # Third-party
@@ -17,6 +18,16 @@ from src.models.workflow import ErrorResponse
 
 
 # ================================== Functions ================================ #
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Application lifespan manager."""
+    # Startup
+    logger.info("FastAPI application started")
+    yield
+    # Shutdown
+    logger.info("FastAPI application shutting down")
+
+
 def create_app(cfg: DictConfig) -> FastAPI:
     """Create and configure the FastAPI application.
 
@@ -34,6 +45,7 @@ def create_app(cfg: DictConfig) -> FastAPI:
         docs_url=cfg.api.docs.path if cfg.api.docs.enabled else None,
         redoc_url=cfg.api.docs.redoc_path if cfg.api.docs.enabled else None,
         openapi_url=cfg.api.docs.openapi_path if cfg.api.docs.enabled else None,
+        lifespan=lifespan,
     )
 
     # Add CORS middleware
@@ -52,16 +64,6 @@ def create_app(cfg: DictConfig) -> FastAPI:
     app.include_router(workflows.router, prefix="/api/v1")
     app.include_router(health.router, prefix="/api/v1")
 
-    # Add startup and shutdown events
-    @app.on_event("startup")
-    async def startup_event() -> None:
-        """Application startup event."""
-        logger.info("FastAPI application started")
-
-    @app.on_event("shutdown")
-    async def shutdown_event() -> None:
-        """Application shutdown event."""
-        logger.info("FastAPI application shutting down")
 
     return app
 
@@ -90,7 +92,7 @@ def setup_exception_handlers(app: FastAPI) -> None:
     @app.exception_handler(Exception)
     async def general_exception_handler(request: Any, exc: Exception) -> JSONResponse:
         """Handle unexpected exceptions."""
-        logger.error(f"Unexpected error: {exc}", exc_info=True)
+        logger.error(f"Unexpected error: {exc!r}", exc_info=True)
         return JSONResponse(
             status_code=500,
             content=ErrorResponse(

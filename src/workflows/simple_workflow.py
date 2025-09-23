@@ -6,7 +6,7 @@ from datetime import timedelta
 from typing import Any, Dict
 
 # Third-party
-from temporalio import workflow
+from temporalio import workflow, activity
 from loguru import logger
 
 # Local Application
@@ -97,7 +97,7 @@ class SimpleWorkflow:
 
 
 # ================================== Activities =============================== #
-@workflow.activity.defn
+@activity.defn
 async def validate_input_activity(parameters: Dict[str, Any]) -> Dict[str, Any]:
     """Validate input parameters.
 
@@ -119,7 +119,7 @@ async def validate_input_activity(parameters: Dict[str, Any]) -> Dict[str, Any]:
     return {"valid": True, "message": "Input validation successful"}
 
 
-@workflow.activity.defn
+@activity.defn
 async def process_data_activity(parameters: Dict[str, Any]) -> Dict[str, Any]:
     """Process input data.
 
@@ -132,16 +132,17 @@ async def process_data_activity(parameters: Dict[str, Any]) -> Dict[str, Any]:
     logger.info("Processing data")
 
     # Simulate some processing
+    from datetime import datetime, timezone
     processed_data = {
         "original": parameters,
-        "processed_at": workflow.now().isoformat(),
+        "processed_at": datetime.now(timezone.utc).isoformat(),
         "processed_value": parameters.get("required_field", "").upper(),
     }
 
     return {"processed": True, "data": processed_data}
 
 
-@workflow.activity.defn
+@activity.defn
 async def store_data_activity(processed_data: Dict[str, Any]) -> Dict[str, Any]:
     """Store processed data.
 
@@ -154,7 +155,8 @@ async def store_data_activity(processed_data: Dict[str, Any]) -> Dict[str, Any]:
     logger.info("Storing processed data")
 
     # Simulate storage
-    storage_id = f"storage_{workflow.now().timestamp()}"
+    from datetime import datetime, timezone
+    storage_id = f"storage_{datetime.now(timezone.utc).timestamp()}"
 
     return {
         "stored": True,
