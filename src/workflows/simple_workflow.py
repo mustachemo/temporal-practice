@@ -7,7 +7,6 @@ from typing import Any, Dict
 
 # Third-party
 from temporalio import workflow, activity
-from loguru import logger
 
 # Local Application
 from src.models.workflow import WorkflowInput, WorkflowResult
@@ -107,7 +106,7 @@ async def validate_input_activity(parameters: Dict[str, Any]) -> Dict[str, Any]:
     Returns:
         Validation result dictionary.
     """
-    logger.info("Validating input parameters")
+    activity.logger().info("Validating input parameters")
 
     # Simple validation logic
     if not parameters:
@@ -129,7 +128,7 @@ async def process_data_activity(parameters: Dict[str, Any]) -> Dict[str, Any]:
     Returns:
         Processing result dictionary.
     """
-    logger.info("Processing data")
+    activity.logger().info("Processing data")
 
     # Simulate some processing
     from datetime import datetime, timezone
@@ -153,7 +152,7 @@ async def store_data_activity(processed_data: Dict[str, Any]) -> Dict[str, Any]:
     Returns:
         Storage result dictionary.
     """
-    logger.info("Storing processed data")
+    activity.logger().info("Storing processed data")
 
     # Simulate storage
     from datetime import datetime, timezone

@@ -7,7 +7,7 @@ from typing import Dict, Any
 
 # Third-party
 from fastapi import APIRouter, HTTPException
-from loguru import logger
+import logging
 
 # ================================== Router Setup ============================= #
 router = APIRouter(prefix="/health", tags=["health"])
@@ -63,7 +63,7 @@ async def detailed_health_check() -> Dict[str, Any]:
         return health_status
 
     except Exception as e:
-        logger.error(f"Health check failed: {e}")
+        logging.getLogger(__name__).error(f"Health check failed: {e}")
         raise HTTPException(status_code=503, detail="Service unhealthy")
 
 

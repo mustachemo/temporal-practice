@@ -7,13 +7,11 @@ from pathlib import Path
 
 # Third-party
 import hydra
-from loguru import logger
 from omegaconf import DictConfig, OmegaConf
-from rich.console import Console
+import logging
 
 # Local Application
 from src.api.main import create_app
-from src.utils.logging import setup_logger
 from src.workers.temporal_worker import start_temporal_worker
 
 
@@ -26,11 +24,11 @@ def main(cfg: DictConfig) -> None:
         cfg: The configuration object populated by Hydra.
     """
     # -------------------------- Initialization -------------------------- #
-    console = Console()
-    setup_logger(Path("logs/app.log"))
-
-    logger.info(f"Starting [bold cyan]{cfg.app_name}[/bold cyan] v{cfg.version}")
-    logger.debug(f"Configuration:\n{OmegaConf.to_yaml(cfg)}")
+    logging.basicConfig(level=logging.INFO)
+    logging.getLogger(__name__).info(
+        f"Starting {cfg.app.name if 'app' in cfg else cfg.app_name} v{cfg.app.version if 'app' in cfg else cfg.version}"
+    )
+    logging.getLogger(__name__).debug(f"Configuration:\n{OmegaConf.to_yaml(cfg)}")
 
     # -------------------------- Core Logic ------------------------------ #
     try:
@@ -52,10 +50,7 @@ def main(cfg: DictConfig) -> None:
         )
 
     except Exception as e:
-        logger.opt(exception=True).critical("Application startup failed.")
-        console.print(
-            "[bold red]A critical error occurred. Check the logs for details.[/bold red]"
-        )
+        logging.getLogger(__name__).exception("Application startup failed")
         raise
 
 
