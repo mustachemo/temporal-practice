@@ -165,8 +165,9 @@ cython_debug/
 .vscode/
 *.code-workspace
 
-# Cursor
-.cursor/
+# Cursor (but keep rules)
+.cursor/*
+!.cursor/rules/
 
 # Project specific
 logs/

@@ -1,0 +1,716 @@
+---
+description: Testing standards for Temporal workflows and FastAPI applications
+globs: ["**/tests/*.py", "**/test_*.py"]
+alwaysApply: true
+---
+
+# Testing Standards for Temporal Workflows
+
+## Testing Framework Setup
+
+### Pytest Configuration
+```python
+# conftest.py
+import pytest
+import asyncio
+from typing import AsyncGenerator, Generator
+from pathlib import Path
+from temporalio.testing import WorkflowEnvironment
+from temporalio.client import Client
+from fastapi.testclient import TestClient
+from omegaconf import OmegaConf
+
+# Test configuration
+@pytest.fixture(scope="session")
+def event_loop() -> Generator[asyncio.AbstractEventLoop, None, None]:
+    """Create an instance of the default event loop for the test session."""
+    loop = asyncio.get_event_loop_policy().new_event_loop()
+    yield loop
+    loop.close()
+
+@pytest.fixture(scope="session")
+async def temporal_test_env() -> AsyncGenerator[WorkflowEnvironment, None]:
+    """Create a Temporal test environment for the test session."""
+    async with WorkflowEnvironment() as env:
+        yield env
+
+@pytest.fixture
+async def temporal_client(temporal_test_env: WorkflowEnvironment) -> Client:
+    """Get Temporal client for testing."""
+    return temporal_test_env.client
+
+@pytest.fixture
+def test_config() -> OmegaConf:
+    """Get test configuration."""
+    return OmegaConf.create({
+        "app": {
+            "name": "test-app",
+            "version": "1.0.0",
+            "debug": True
+        },
+        "temporal": {
+            "server": {
+                "host": "localhost",
+                "port": 7233,
+                "namespace": "test"
+            },
+            "worker": {
+                "task_queue": "test-task-queue",
+                "max_concurrent_activities": 5,
+                "max_concurrent_workflows": 5
+            }
+        },
+        "database": {
+            "url": "sqlite:///test.db",
+            "pool_size": 5
+        },
+        "logging": {
+            "level": "DEBUG"
+        }
+    })
+
+@pytest.fixture
+def fastapi_client(test_config: OmegaConf) -> TestClient:
+    """Create FastAPI test client."""
+    from main import create_app
+    app = create_app(test_config)
+    return TestClient(app)
+```
+
+## Workflow Testing
+
+### Workflow Unit Tests
+```python
+# tests/workflows/test_complex_workflow.py
+import pytest
+from unittest.mock import AsyncMock, patch
+from temporalio.testing import WorkflowEnvironment
+from temporalio.client import Client
+from workflows.complex_workflow import ComplexWorkflow, WorkflowInput, WorkflowResult
+
+class TestComplexWorkflow:
+    """Test cases for ComplexWorkflow."""
+
+    @pytest.mark.asyncio
+    async def test_workflow_success(self, temporal_test_env: WorkflowEnvironment):
+        """Test successful workflow execution."""
+        # Arrange
+        client = temporal_test_env.client
+        input_data = WorkflowInput(
+            request_id="test-request-123",
+            user_id="test-user-456",
+            parameters={"test_param": "test_value"}
+        )
+
+        # Mock activities
+        with patch('workflows.complex_workflow.validate_data_activity') as mock_validate, \
+             patch('workflows.complex_workflow.process_data_activity') as mock_process, \
+             patch('workflows.complex_workflow.store_data_activity') as mock_store:
+
+            mock_validate.return_value = {"valid": True, "message": "Data is valid"}
+            mock_process.return_value = {"processed": True, "result": "processed_data"}
+            mock_store.return_value = {"stored": True, "id": "storage_id_123"}
+
+            # Act
+            workflow_handle = await client.start_workflow(
+                ComplexWorkflow.run,
+                input_data,
+                id="test-workflow-123",
+                task_queue="test-task-queue"
+            )
+
+            result = await workflow_handle.result()
+
+            # Assert
+            assert result.success is True
+            assert result.result_data is not None
+            assert "validation" in result.result_data
+            assert "processing" in result.result_data
+            assert "storage" in result.result_data
+
+            # Verify activities were called
+            mock_validate.assert_called_once()
+            mock_process.assert_called_once()
+            mock_store.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_workflow_validation_failure(self, temporal_test_env: WorkflowEnvironment):
+        """Test workflow failure due to validation error."""
+        # Arrange
+        client = temporal_test_env.client
+        input_data = WorkflowInput(
+            request_id="test-request-123",
+            user_id="test-user-456",
+            parameters={"invalid_param": "invalid_value"}
+        )
+
+        # Mock validation to fail
+        with patch('workflows.complex_workflow.validate_data_activity') as mock_validate:
+            mock_validate.return_value = {"valid": False, "message": "Invalid data"}
+
+            # Act
+            workflow_handle = await client.start_workflow(
+                ComplexWorkflow.run,
+                input_data,
+                id="test-workflow-123",
+                task_queue="test-task-queue"
+            )
+
+            result = await workflow_handle.result()
+
+            # Assert
+            assert result.success is False
+            assert "validation" in result.error_message.lower()
+
+    @pytest.mark.asyncio
+    async def test_workflow_activity_retry(self, temporal_test_env: WorkflowEnvironment):
+        """Test workflow with activity retry logic."""
+        # Arrange
+        client = temporal_test_env.client
+        input_data = WorkflowInput(
+            request_id="test-request-123",
+            user_id="test-user-456",
+            parameters={"test_param": "test_value"}
+        )
+
+        # Mock activities with retry scenario
+        with patch('workflows.complex_workflow.validate_data_activity') as mock_validate, \
+             patch('workflows.complex_workflow.process_data_activity') as mock_process, \
+             patch('workflows.complex_workflow.store_data_activity') as mock_store:
+
+            mock_validate.return_value = {"valid": True, "message": "Data is valid"}
+
+            # Mock process to fail first time, succeed second time
+            mock_process.side_effect = [
+                Exception("Temporary processing error"),
+                {"processed": True, "result": "processed_data"}
+            ]
+
+            mock_store.return_value = {"stored": True, "id": "storage_id_123"}
+
+            # Act
+            workflow_handle = await client.start_workflow(
+                ComplexWorkflow.run,
+                input_data,
+                id="test-workflow-123",
+                task_queue="test-task-queue"
+            )
+
+            result = await workflow_handle.result()
+
+            # Assert
+            assert result.success is True
+            assert mock_process.call_count == 2  # Should retry once
+
+    @pytest.mark.asyncio
+    async def test_workflow_timeout(self, temporal_test_env: WorkflowEnvironment):
+        """Test workflow timeout handling."""
+        # Arrange
+        client = temporal_test_env.client
+        input_data = WorkflowInput(
+            request_id="test-request-123",
+            user_id="test-user-456",
+            parameters={"test_param": "test_value"}
+        )
+
+        # Mock slow activity
+        with patch('workflows.complex_workflow.validate_data_activity') as mock_validate:
+            async def slow_validation(*args, **kwargs):
+                await asyncio.sleep(10)  # Simulate slow operation
+                return {"valid": True, "message": "Data is valid"}
+
+            mock_validate.side_effect = slow_validation
+
+            # Act & Assert
+            with pytest.raises(Exception):  # Should timeout
+                workflow_handle = await client.start_workflow(
+                    ComplexWorkflow.run,
+                    input_data,
+                    id="test-workflow-123",
+                    task_queue="test-task-queue",
+                    execution_timeout=timedelta(seconds=5)  # Short timeout
+                )
+
+                await workflow_handle.result()
+```
+
+## Activity Testing
+
+### Activity Unit Tests
+```python
+# tests/activities/test_data_processing_activity.py
+import pytest
+from unittest.mock import patch, AsyncMock
+from activities.data_processing_activity import (
+    process_data_activity,
+    ActivityInput,
+    ActivityResult
+)
+
+class TestDataProcessingActivity:
+    """Test cases for data processing activity."""
+
+    @pytest.mark.asyncio
+    async def test_activity_success(self):
+        """Test successful activity execution."""
+        # Arrange
+        input_data = ActivityInput(
+            data={"input": "test_data"},
+            metadata={"source": "test"}
+        )
+
+        # Mock external dependencies
+        with patch('activities.data_processing_activity._validate_input') as mock_validate, \
+             patch('activities.data_processing_activity._process_data') as mock_process:
+
+            mock_validate.return_value = True
+            mock_process.return_value = {"processed": "test_data", "status": "success"}
+
+            # Act
+            result = await process_data_activity(input_data)
+
+            # Assert
+            assert result.success is True
+            assert result.data is not None
+            assert result.data["processed"] == "test_data"
+            assert result.error is None
+
+            # Verify mocks were called
+            mock_validate.assert_called_once_with(input_data.data)
+            mock_process.assert_called_once_with(input_data.data)
+
+    @pytest.mark.asyncio
+    async def test_activity_validation_error(self):
+        """Test activity with validation error."""
+        # Arrange
+        input_data = ActivityInput(
+            data={"invalid": "data"},
+            metadata={"source": "test"}
+        )
+
+        # Mock validation to fail
+        with patch('activities.data_processing_activity._validate_input') as mock_validate:
+            mock_validate.return_value = False
+
+            # Act
+            result = await process_data_activity(input_data)
+
+            # Assert
+            assert result.success is False
+            assert result.data is None
+            assert "validation" in result.error.lower()
+
+    @pytest.mark.asyncio
+    async def test_activity_processing_error(self):
+        """Test activity with processing error."""
+        # Arrange
+        input_data = ActivityInput(
+            data={"input": "test_data"},
+            metadata={"source": "test"}
+        )
+
+        # Mock validation to pass, processing to fail
+        with patch('activities.data_processing_activity._validate_input') as mock_validate, \
+             patch('activities.data_processing_activity._process_data') as mock_process:
+
+            mock_validate.return_value = True
+            mock_process.side_effect = Exception("Processing failed")
+
+            # Act
+            result = await process_data_activity(input_data)
+
+            # Assert
+            assert result.success is False
+            assert result.data is None
+            assert "processing failed" in result.error.lower()
+
+    @pytest.mark.asyncio
+    async def test_activity_retry_behavior(self):
+        """Test activity retry behavior."""
+        # Arrange
+        input_data = ActivityInput(
+            data={"input": "test_data"},
+            metadata={"source": "test"}
+        )
+
+        # Mock processing to fail first time, succeed second time
+        with patch('activities.data_processing_activity._validate_input') as mock_validate, \
+             patch('activities.data_processing_activity._process_data') as mock_process:
+
+            mock_validate.return_value = True
+            mock_process.side_effect = [
+                Exception("Temporary error"),
+                {"processed": "test_data", "status": "success"}
+            ]
+
+            # Act - First call should fail
+            result1 = await process_data_activity(input_data)
+            assert result1.success is False
+
+            # Act - Second call should succeed
+            result2 = await process_data_activity(input_data)
+            assert result2.success is True
+            assert result2.data["processed"] == "test_data"
+```
+
+## FastAPI Testing
+
+### API Endpoint Tests
+```python
+# tests/api/test_workflow_endpoints.py
+import pytest
+from fastapi.testclient import TestClient
+from unittest.mock import patch, AsyncMock
+from temporalio.client import Client
+
+class TestWorkflowEndpoints:
+    """Test cases for workflow API endpoints."""
+
+    def test_start_workflow_success(self, fastapi_client: TestClient):
+        """Test successful workflow start."""
+        # Arrange
+        request_data = {
+            "workflow_type": "complex_workflow",
+            "input_data": {"test": "data"},
+            "user_id": "test_user"
+        }
+
+        # Mock Temporal client
+        with patch('api.workflow_routes.get_temporal_client') as mock_get_client:
+            mock_client = AsyncMock(spec=Client)
+            mock_workflow_handle = AsyncMock()
+            mock_workflow_handle.id = "test-workflow-123"
+
+            mock_client.start_workflow.return_value = mock_workflow_handle
+            mock_get_client.return_value = mock_client
+
+            # Act
+            response = fastapi_client.post("/api/v1/workflows/start", json=request_data)
+
+            # Assert
+            assert response.status_code == 200
+            data = response.json()
+            assert data["workflow_id"] == "test-workflow-123"
+            assert data["status"] == "STARTED"
+            assert "message" in data
+
+            # Verify Temporal client was called
+            mock_client.start_workflow.assert_called_once()
+
+    def test_start_workflow_validation_error(self, fastapi_client: TestClient):
+        """Test workflow start with validation error."""
+        # Arrange
+        request_data = {
+            "workflow_type": "",  # Invalid empty type
+            "input_data": {"test": "data"},
+            "user_id": "test_user"
+        }
+
+        # Act
+        response = fastapi_client.post("/api/v1/workflows/start", json=request_data)
+
+        # Assert
+        assert response.status_code == 422  # Validation error
+        data = response.json()
+        assert "error" in data
+
+    def test_get_workflow_status_success(self, fastapi_client: TestClient):
+        """Test getting workflow status."""
+        # Arrange
+        workflow_id = "test-workflow-123"
+
+        # Mock Temporal client
+        with patch('api.workflow_routes.get_temporal_client') as mock_get_client:
+            mock_client = AsyncMock(spec=Client)
+            mock_workflow_handle = AsyncMock()
+            mock_status = AsyncMock()
+            mock_status.status.name = "RUNNING"
+            mock_status.start_time.isoformat.return_value = "2023-01-01T00:00:00"
+
+            mock_workflow_handle.describe.return_value = mock_status
+            mock_client.get_workflow_handle.return_value = mock_workflow_handle
+            mock_get_client.return_value = mock_client
+
+            # Act
+            response = fastapi_client.get(f"/api/v1/workflows/{workflow_id}/status")
+
+            # Assert
+            assert response.status_code == 200
+            data = response.json()
+            assert data["workflow_id"] == workflow_id
+            assert data["status"] == "RUNNING"
+            assert "message" in data
+
+    def test_get_workflow_status_not_found(self, fastapi_client: TestClient):
+        """Test getting status of non-existent workflow."""
+        # Arrange
+        workflow_id = "non-existent-workflow"
+
+        # Mock Temporal client to raise exception
+        with patch('api.workflow_routes.get_temporal_client') as mock_get_client:
+            mock_client = AsyncMock(spec=Client)
+            mock_client.get_workflow_handle.side_effect = Exception("Workflow not found")
+            mock_get_client.return_value = mock_client
+
+            # Act
+            response = fastapi_client.get(f"/api/v1/workflows/{workflow_id}/status")
+
+            # Assert
+            assert response.status_code == 404
+            data = response.json()
+            assert "error" in data
+            assert "not found" in data["message"].lower()
+
+    def test_signal_workflow_success(self, fastapi_client: TestClient):
+        """Test sending signal to workflow."""
+        # Arrange
+        workflow_id = "test-workflow-123"
+        signal_data = {"signal_type": "pause", "reason": "maintenance"}
+
+        # Mock Temporal client
+        with patch('api.workflow_routes.get_temporal_client') as mock_get_client:
+            mock_client = AsyncMock(spec=Client)
+            mock_workflow_handle = AsyncMock()
+            mock_client.get_workflow_handle.return_value = mock_workflow_handle
+            mock_get_client.return_value = mock_client
+
+            # Act
+            response = fastapi_client.post(
+                f"/api/v1/workflows/{workflow_id}/signal",
+                json=signal_data
+            )
+
+            # Assert
+            assert response.status_code == 200
+            data = response.json()
+            assert "message" in data
+
+            # Verify signal was sent
+            mock_workflow_handle.signal.assert_called_once_with("workflow_signal", signal_data)
+```
+
+## Integration Testing
+
+### End-to-End Workflow Tests
+```python
+# tests/integration/test_workflow_integration.py
+import pytest
+from temporalio.testing import WorkflowEnvironment
+from temporalio.client import Client
+from fastapi.testclient import TestClient
+
+class TestWorkflowIntegration:
+    """Integration tests for complete workflow execution."""
+
+    @pytest.mark.asyncio
+    async def test_complete_workflow_execution(
+        self,
+        temporal_test_env: WorkflowEnvironment,
+        fastapi_client: TestClient
+    ):
+        """Test complete workflow execution from API to completion."""
+        # Arrange
+        request_data = {
+            "workflow_type": "complex_workflow",
+            "input_data": {
+                "user_id": "test_user",
+                "data": {"test": "integration_test"}
+            },
+            "user_id": "test_user"
+        }
+
+        # Start workflow via API
+        response = fastapi_client.post("/api/v1/workflows/start", json=request_data)
+        assert response.status_code == 200
+
+        workflow_data = response.json()
+        workflow_id = workflow_data["workflow_id"]
+
+        # Wait for workflow to complete
+        client = temporal_test_env.client
+        workflow_handle = client.get_workflow_handle(workflow_id)
+
+        # Act
+        result = await workflow_handle.result()
+
+        # Assert
+        assert result.success is True
+        assert result.result_data is not None
+
+        # Verify workflow status via API
+        status_response = fastapi_client.get(f"/api/v1/workflows/{workflow_id}/status")
+        assert status_response.status_code == 200
+
+        status_data = status_response.json()
+        assert status_data["status"] == "COMPLETED"
+
+    @pytest.mark.asyncio
+    async def test_workflow_with_activity_failures(
+        self,
+        temporal_test_env: WorkflowEnvironment,
+        fastapi_client: TestClient
+    ):
+        """Test workflow behavior with activity failures."""
+        # Arrange
+        request_data = {
+            "workflow_type": "complex_workflow",
+            "input_data": {
+                "user_id": "test_user",
+                "data": {"test": "failure_test"},
+                "force_failure": True  # Special flag to force activity failure
+            },
+            "user_id": "test_user"
+        }
+
+        # Start workflow via API
+        response = fastapi_client.post("/api/v1/workflows/start", json=request_data)
+        assert response.status_code == 200
+
+        workflow_data = response.json()
+        workflow_id = workflow_data["workflow_id"]
+
+        # Wait for workflow to complete
+        client = temporal_test_env.client
+        workflow_handle = client.get_workflow_handle(workflow_id)
+
+        # Act
+        result = await workflow_handle.result()
+
+        # Assert
+        assert result.success is False
+        assert result.error_message is not None
+
+        # Verify workflow status via API
+        status_response = fastapi_client.get(f"/api/v1/workflows/{workflow_id}/status")
+        assert status_response.status_code == 200
+
+        status_data = status_response.json()
+        assert status_data["status"] == "FAILED"
+```
+
+## Test Utilities
+
+### Test Data Factories
+```python
+# tests/utils/test_factories.py
+from dataclasses import dataclass
+from typing import Dict, Any, Optional
+from faker import Faker
+
+fake = Faker()
+
+@dataclass
+class WorkflowTestData:
+    """Factory for creating test workflow data."""
+
+    @staticmethod
+    def create_workflow_input(
+        request_id: Optional[str] = None,
+        user_id: Optional[str] = None,
+        parameters: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
+        """Create test workflow input data."""
+        return {
+            "request_id": request_id or fake.uuid4(),
+            "user_id": user_id or fake.user_name(),
+            "parameters": parameters or {"test_param": fake.word()}
+        }
+
+    @staticmethod
+    def create_activity_input(
+        data: Optional[Dict[str, Any]] = None,
+        metadata: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
+        """Create test activity input data."""
+        return {
+            "data": data or {"input": fake.word()},
+            "metadata": metadata or {"source": "test"}
+        }
+
+    @staticmethod
+    def create_api_request(
+        workflow_type: str = "test_workflow",
+        input_data: Optional[Dict[str, Any]] = None,
+        user_id: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """Create test API request data."""
+        return {
+            "workflow_type": workflow_type,
+            "input_data": input_data or {"test": "data"},
+            "user_id": user_id or fake.user_name()
+        }
+
+class MockTemporalClient:
+    """Mock Temporal client for testing."""
+
+    def __init__(self):
+        self.workflows = {}
+        self.workflow_handles = {}
+
+    async def start_workflow(self, workflow_func, *args, **kwargs):
+        """Mock workflow start."""
+        workflow_id = kwargs.get("id", fake.uuid4())
+        mock_handle = MockWorkflowHandle(workflow_id)
+        self.workflow_handles[workflow_id] = mock_handle
+        return mock_handle
+
+    def get_workflow_handle(self, workflow_id: str):
+        """Mock get workflow handle."""
+        return self.workflow_handles.get(workflow_id)
+
+class MockWorkflowHandle:
+    """Mock workflow handle for testing."""
+
+    def __init__(self, workflow_id: str):
+        self.id = workflow_id
+        self._result = None
+
+    async def result(self):
+        """Mock workflow result."""
+        if self._result is None:
+            # Simulate workflow execution
+            self._result = {"success": True, "data": "test_result"}
+        return self._result
+
+    async def signal(self, signal_name: str, *args, **kwargs):
+        """Mock workflow signal."""
+        pass
+
+    async def describe(self):
+        """Mock workflow describe."""
+        from unittest.mock import Mock
+        mock_status = Mock()
+        mock_status.status.name = "RUNNING"
+        mock_status.start_time.isoformat.return_value = "2023-01-01T00:00:00"
+        return mock_status
+```
+
+## Best Practices
+
+### Test Organization
+- Use descriptive test names that explain the scenario
+- Group related tests in classes
+- Use fixtures for common setup and teardown
+- Separate unit tests from integration tests
+- Use test factories for creating test data
+
+### Test Coverage
+- Aim for high test coverage (>90%) for critical code paths
+- Test both success and failure scenarios
+- Test edge cases and error conditions
+- Use parameterized tests for testing multiple inputs
+- Test async code properly with pytest-asyncio
+
+### Mocking Strategy
+- Mock external dependencies (databases, APIs, Temporal server)
+- Use dependency injection for easier mocking
+- Mock at the right level (not too deep, not too shallow)
+- Verify mock interactions in assertions
+- Use context managers for temporary mocking
+
+### Test Performance
+- Use test databases and in-memory storage for fast tests
+- Run tests in parallel when possible
+- Use test fixtures to avoid repeated setup
+- Clean up resources after tests
+- Use test markers to categorize tests by speed/type

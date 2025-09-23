@@ -1,0 +1,79 @@
+---
+description: Python coding standards and best practices for the Temporal workflow project
+globs: ["*.py"]
+alwaysApply: true
+---
+
+# Python Standards & Best Practices
+
+## Code Style & Formatting
+
+### Naming Conventions
+- **Variables & Functions**: Use descriptive `snake_case` names. Avoid unclear abbreviations.
+- **Constants**: Use `ALL_CAPS_SNAKE_CASE` (Screaming Snake Case).
+- **Classes**: Use `PascalCase` for class names.
+- **Private Attributes**: Prefix with single underscore `_internal_var`.
+
+### Code Structure
+- **Indentation**: Use 4 spaces per indentation level.
+- **Line Length**: Keep lines under 120 characters.
+- **Imports**: Group in order: standard library, third-party, local imports. Sort each group alphabetically.
+- **Section Separators**: Use consistent comment style for logical sections:
+  ```python
+  # =============================== Constants ================================= #
+  # --------------------------------- Workflows ------------------------------ #
+  ```
+
+## Type Hints & Documentation
+
+### Type Hints
+- All function and method signatures must include comprehensive type hints.
+- Use standard types (`int`, `str`, `list`, `dict`) and `typing` module (`Optional`, `Iterator`, `Callable`, etc.).
+- Use `dataclasses` for structured data with proper type annotations.
+
+### Docstrings
+- All classes, functions, and methods must have Google-style docstrings.
+- Use triple double-quotes (`"""Docstring content..."""`).
+- Include `Args:`, `Returns:`, and `Raises:` sections where applicable.
+
+### Comments
+- Use inline comments sparingly, only for complex or non-obvious logic.
+- Use "Better Comments" style:
+  ```python
+  # * Very important information is highlighted.
+  # ? This is a question or clarification needed.
+  # ! This is a warning or something to be cautious about.
+  # TODO: This is a task that needs to be completed.
+  ```
+
+## Error Handling & Robustness
+
+### Exception Handling
+- Handle exceptions specifically (e.g., `try...except FileNotFoundError`).
+- Avoid catching generic `Exception` unless it's a last resort and is re-raised or logged with context.
+- Use `try...except` blocks only for code where exceptions are expected and can be handled meaningfully.
+
+### Language Features
+- **File Paths**: Use `pathlib.Path` for all filesystem operations.
+- **Configuration**: Avoid magic strings and numbers. Define them as constants.
+- **String Formatting**: Use f-strings (`f"..."`) exclusively.
+- **Generators**: Use `yield` for generators when returning sequences, especially for I/O-bound operations.
+
+## Recommended Libraries
+
+### Core Libraries
+- **File Paths**: `pathlib`
+- **Data Structures**: `dataclasses` for simple data holders; `collections` for specialized containers.
+- **Iteration**: `itertools` for efficient looping and combinatorial logic.
+- **Concurrency**: `concurrent.futures` for parallel execution.
+- **CLI Applications**: `typer`
+- **Console Output**: `rich`
+- **Logging**: `loguru`
+
+### Project-Specific Libraries
+- **Workflow Engine**: `temporalio`
+- **Web Framework**: `fastapi`
+- **Configuration**: `hydra-core` with `omegaconf`
+- **HTTP Client**: `httpx` for async HTTP operations
+- **Data Validation**: `pydantic` for data models
+- **Testing**: `pytest` with `pytest-asyncio` for async testing

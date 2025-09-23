@@ -1,0 +1,672 @@
+---
+description: Comprehensive logging and monitoring standards for Temporal workflows
+globs: ["**/*.py"]
+alwaysApply: true
+---
+
+# Logging & Monitoring Standards
+
+## Logging Architecture
+
+### Loguru Configuration
+```python
+# utils/logging.py
+import sys
+from pathlib import Path
+from loguru import logger
+from rich.logging import RichHandler
+from typing import Optional, Dict, Any
+import json
+
+def setup_logger(
+    log_file: Optional[Path] = None,
+    log_level: str = "INFO",
+    enable_rich: bool = True,
+    enable_json: bool = False
+) -> None:
+    """Configure Loguru logger with rich console output and file logging.
+
+    Args:
+        log_file: Path to log file. If None, only console logging is enabled.
+        log_level: Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL).
+        enable_rich: Whether to use Rich for console formatting.
+        enable_json: Whether to use JSON formatting for file logs.
+    """
+    # Remove default handler
+    logger.remove()
+
+    # Console handler with Rich formatting
+    if enable_rich:
+        logger.add(
+            sys.stderr,
+            level=log_level,
+            format="{message}",
+            enqueue=True,
+            backtrace=True,
+            colorize=True,
+            handler=RichHandler(
+                rich_tracebacks=True,
+                show_path=False,
+                markup=True,
+            ),
+        )
+    else:
+        logger.add(
+            sys.stderr,
+            level=log_level,
+            format="{time:YYYY-MM-DD HH:mm:ss.SSS} | {level: <8} | {name}:{function}:{line} - {message}",
+            enqueue=True,
+            backtrace=True,
+            colorize=True,
+        )
+
+    # File handler
+    if log_file:
+        log_file.parent.mkdir(parents=True, exist_ok=True)
+
+        if enable_json:
+            logger.add(
+                log_file,
+                level="DEBUG",
+                rotation="10 MB",
+                retention="30 days",
+                enqueue=True,
+                backtrace=True,
+                serialize=True,  # JSON serialization
+                format="{time:YYYY-MM-DD HH:mm:ss.SSS} | {level} | {name}:{function}:{line} | {message}",
+            )
+        else:
+            logger.add(
+                log_file,
+                level="DEBUG",
+                rotation="10 MB",
+                retention="30 days",
+                enqueue=True,
+                backtrace=True,
+                format="{time:YYYY-MM-DD HH:mm:ss.SSS} | {level: <8} | {name}:{function}:{line} - {message}",
+            )
+
+    logger.info("[bold green]Logger configured successfully[/bold green]")
+
+def get_workflow_logger(workflow_id: str, workflow_type: str) -> Any:
+    """Get a logger instance with workflow context.
+
+    Args:
+        workflow_id: Unique identifier for the workflow.
+        workflow_type: Type of workflow being executed.
+
+    Returns:
+        Logger instance with workflow context.
+    """
+    return logger.bind(
+        workflow_id=workflow_id,
+        workflow_type=workflow_type,
+        component="workflow"
+    )
+
+def get_activity_logger(activity_name: str, workflow_id: str) -> Any:
+    """Get a logger instance with activity context.
+
+    Args:
+        activity_name: Name of the activity.
+        workflow_id: ID of the parent workflow.
+
+    Returns:
+        Logger instance with activity context.
+    """
+    return logger.bind(
+        activity_name=activity_name,
+        workflow_id=workflow_id,
+        component="activity"
+    )
+```
+
+## Structured Logging
+
+### Log Context and Metadata
+```python
+# utils/structured_logging.py
+from dataclasses import dataclass, asdict
+from typing import Any, Dict, Optional, Union
+from datetime import datetime
+import json
+from loguru import logger
+
+@dataclass
+class LogContext:
+    """Structured log context for consistent logging."""
+    workflow_id: Optional[str] = None
+    activity_name: Optional[str] = None
+    user_id: Optional[str] = None
+    request_id: Optional[str] = None
+    correlation_id: Optional[str] = None
+    component: str = "application"
+    timestamp: Optional[datetime] = None
+
+    def __post_init__(self):
+        if self.timestamp is None:
+            self.timestamp = datetime.utcnow()
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert context to dictionary for logging."""
+        return asdict(self)
+
+class StructuredLogger:
+    """Structured logger with context management."""
+
+    def __init__(self, base_context: Optional[LogContext] = None):
+        self.base_context = base_context or LogContext()
+
+    def _log_with_context(
+        self,
+        level: str,
+        message: str,
+        extra_data: Optional[Dict[str, Any]] = None,
+        context: Optional[LogContext] = None
+    ) -> None:
+        """Log message with structured context."""
+        log_context = context or self.base_context
+        log_data = {
+            "message": message,
+            "context": log_context.to_dict(),
+            "extra": extra_data or {},
+            "level": level
+        }
+
+        # Use appropriate log level
+        if level == "DEBUG":
+            logger.debug(json.dumps(log_data, default=str))
+        elif level == "INFO":
+            logger.info(json.dumps(log_data, default=str))
+        elif level == "WARNING":
+            logger.warning(json.dumps(log_data, default=str))
+        elif level == "ERROR":
+            logger.error(json.dumps(log_data, default=str))
+        elif level == "CRITICAL":
+            logger.critical(json.dumps(log_data, default=str))
+
+    def debug(self, message: str, **kwargs) -> None:
+        """Log debug message with context."""
+        self._log_with_context("DEBUG", message, kwargs)
+
+    def info(self, message: str, **kwargs) -> None:
+        """Log info message with context."""
+        self._log_with_context("INFO", message, kwargs)
+
+    def warning(self, message: str, **kwargs) -> None:
+        """Log warning message with context."""
+        self._log_with_context("WARNING", message, kwargs)
+
+    def error(self, message: str, **kwargs) -> None:
+        """Log error message with context."""
+        self._log_with_context("ERROR", message, kwargs)
+
+    def critical(self, message: str, **kwargs) -> None:
+        """Log critical message with context."""
+        self._log_with_context("CRITICAL", message, kwargs)
+
+    def with_context(self, **context_updates) -> "StructuredLogger":
+        """Create new logger with updated context."""
+        new_context = LogContext(**{**asdict(self.base_context), **context_updates})
+        return StructuredLogger(new_context)
+```
+
+## Workflow and Activity Logging
+
+### Workflow Logging
+```python
+# workflows/base_workflow.py
+from dataclasses import dataclass
+from typing import Any, Dict, Optional
+from temporalio import workflow
+from utils.structured_logging import StructuredLogger, LogContext
+
+@dataclass
+class WorkflowExecutionContext:
+    """Context for workflow execution logging."""
+    workflow_id: str
+    workflow_type: str
+    user_id: Optional[str] = None
+    request_id: Optional[str] = None
+    correlation_id: Optional[str] = None
+
+class BaseWorkflow:
+    """Base workflow class with structured logging."""
+
+    def __init__(self):
+        self.logger = workflow.logger()
+        self._execution_context: Optional[WorkflowExecutionContext] = None
+        self._structured_logger: Optional[StructuredLogger] = None
+
+    def _setup_logging(self, context: WorkflowExecutionContext) -> None:
+        """Setup structured logging for workflow execution."""
+        self._execution_context = context
+        log_context = LogContext(
+            workflow_id=context.workflow_id,
+            workflow_type=context.workflow_type,
+            user_id=context.user_id,
+            request_id=context.request_id,
+            correlation_id=context.correlation_id,
+            component="workflow"
+        )
+        self._structured_logger = StructuredLogger(log_context)
+
+    def log_workflow_start(self, input_data: Dict[str, Any]) -> None:
+        """Log workflow start with input data."""
+        if self._structured_logger:
+            self._structured_logger.info(
+                "Workflow execution started",
+                input_data=input_data,
+                workflow_status="STARTED"
+            )
+
+    def log_workflow_completion(self, result: Any) -> None:
+        """Log workflow completion with result."""
+        if self._structured_logger:
+            self._structured_logger.info(
+                "Workflow execution completed",
+                result=result,
+                workflow_status="COMPLETED"
+            )
+
+    def log_workflow_error(self, error: Exception) -> None:
+        """Log workflow error with exception details."""
+        if self._structured_logger:
+            self._structured_logger.error(
+                "Workflow execution failed",
+                error_type=type(error).__name__,
+                error_message=str(error),
+                workflow_status="FAILED"
+            )
+
+    def log_activity_call(self, activity_name: str, input_data: Dict[str, Any]) -> None:
+        """Log activity call with input data."""
+        if self._structured_logger:
+            self._structured_logger.info(
+                f"Calling activity: {activity_name}",
+                activity_name=activity_name,
+                input_data=input_data,
+                activity_status="CALLED"
+            )
+
+    def log_activity_result(self, activity_name: str, result: Any) -> None:
+        """Log activity result."""
+        if self._structured_logger:
+            self._structured_logger.info(
+                f"Activity completed: {activity_name}",
+                activity_name=activity_name,
+                result=result,
+                activity_status="COMPLETED"
+            )
+
+    def log_activity_error(self, activity_name: str, error: Exception) -> None:
+        """Log activity error."""
+        if self._structured_logger:
+            self._structured_logger.error(
+                f"Activity failed: {activity_name}",
+                activity_name=activity_name,
+                error_type=type(error).__name__,
+                error_message=str(error),
+                activity_status="FAILED"
+            )
+```
+
+### Activity Logging
+```python
+# activities/base_activity.py
+from dataclasses import dataclass
+from typing import Any, Dict, Optional
+from temporalio import activity
+from utils.structured_logging import StructuredLogger, LogContext
+
+@dataclass
+class ActivityExecutionContext:
+    """Context for activity execution logging."""
+    activity_name: str
+    workflow_id: str
+    user_id: Optional[str] = None
+    request_id: Optional[str] = None
+
+class BaseActivity:
+    """Base activity class with structured logging."""
+
+    def __init__(self):
+        self.logger = activity.logger()
+        self._execution_context: Optional[ActivityExecutionContext] = None
+        self._structured_logger: Optional[StructuredLogger] = None
+
+    def _setup_logging(self, context: ActivityExecutionContext) -> None:
+        """Setup structured logging for activity execution."""
+        self._execution_context = context
+        log_context = LogContext(
+            workflow_id=context.workflow_id,
+            activity_name=context.activity_name,
+            user_id=context.user_id,
+            request_id=context.request_id,
+            component="activity"
+        )
+        self._structured_logger = StructuredLogger(log_context)
+
+    def log_activity_start(self, input_data: Dict[str, Any]) -> None:
+        """Log activity start with input data."""
+        if self._structured_logger:
+            self._structured_logger.info(
+                "Activity execution started",
+                input_data=input_data,
+                activity_status="STARTED"
+            )
+
+    def log_activity_completion(self, result: Any) -> None:
+        """Log activity completion with result."""
+        if self._structured_logger:
+            self._structured_logger.info(
+                "Activity execution completed",
+                result=result,
+                activity_status="COMPLETED"
+            )
+
+    def log_activity_error(self, error: Exception) -> None:
+        """Log activity error with exception details."""
+        if self._structured_logger:
+            self._structured_logger.error(
+                "Activity execution failed",
+                error_type=type(error).__name__,
+                error_message=str(error),
+                activity_status="FAILED"
+            )
+
+    def log_activity_retry(self, attempt: int, max_attempts: int, error: Exception) -> None:
+        """Log activity retry attempt."""
+        if self._structured_logger:
+            self._structured_logger.warning(
+                f"Activity retry attempt {attempt}/{max_attempts}",
+                attempt=attempt,
+                max_attempts=max_attempts,
+                error_type=type(error).__name__,
+                error_message=str(error),
+                activity_status="RETRYING"
+            )
+```
+
+## Performance Monitoring
+
+### Metrics Collection
+```python
+# utils/metrics.py
+from dataclasses import dataclass
+from typing import Dict, Any, Optional
+from datetime import datetime, timedelta
+import time
+from collections import defaultdict, Counter
+from loguru import logger
+
+@dataclass
+class MetricPoint:
+    """A single metric data point."""
+    name: str
+    value: float
+    timestamp: datetime
+    tags: Dict[str, str]
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert metric to dictionary for logging."""
+        return {
+            "metric_name": self.name,
+            "value": self.value,
+            "timestamp": self.timestamp.isoformat(),
+            "tags": self.tags
+        }
+
+class MetricsCollector:
+    """Collects and logs application metrics."""
+
+    def __init__(self):
+        self.metrics: Dict[str, list] = defaultdict(list)
+        self.counters: Dict[str, int] = defaultdict(int)
+        self.timers: Dict[str, list] = defaultdict(list)
+
+    def increment_counter(self, name: str, value: int = 1, tags: Optional[Dict[str, str]] = None) -> None:
+        """Increment a counter metric."""
+        self.counters[name] += value
+        self._log_metric(name, self.counters[name], "counter", tags or {})
+
+    def record_gauge(self, name: str, value: float, tags: Optional[Dict[str, str]] = None) -> None:
+        """Record a gauge metric."""
+        self._log_metric(name, value, "gauge", tags or {})
+
+    def record_timer(self, name: str, duration: float, tags: Optional[Dict[str, str]] = None) -> None:
+        """Record a timer metric."""
+        self.timers[name].append(duration)
+        self._log_metric(name, duration, "timer", tags or {})
+
+    def _log_metric(self, name: str, value: float, metric_type: str, tags: Dict[str, str]) -> None:
+        """Log metric to structured logger."""
+        metric = MetricPoint(
+            name=name,
+            value=value,
+            timestamp=datetime.utcnow(),
+            tags={**tags, "type": metric_type}
+        )
+
+        logger.info(
+            "Metric recorded",
+            metric=metric.to_dict()
+        )
+
+    def get_summary_stats(self) -> Dict[str, Any]:
+        """Get summary statistics for all metrics."""
+        summary = {}
+
+        # Counter summaries
+        summary["counters"] = dict(self.counters)
+
+        # Timer summaries
+        for name, values in self.timers.items():
+            if values:
+                summary[f"{name}_timer"] = {
+                    "count": len(values),
+                    "min": min(values),
+                    "max": max(values),
+                    "avg": sum(values) / len(values),
+                    "total": sum(values)
+                }
+
+        return summary
+
+# Global metrics collector
+metrics = MetricsCollector()
+
+class TimerContext:
+    """Context manager for timing operations."""
+
+    def __init__(self, name: str, tags: Optional[Dict[str, str]] = None):
+        self.name = name
+        self.tags = tags or {}
+        self.start_time = None
+
+    def __enter__(self):
+        self.start_time = time.time()
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        if self.start_time:
+            duration = time.time() - self.start_time
+            metrics.record_timer(self.name, duration, self.tags)
+```
+
+### Workflow Performance Monitoring
+```python
+# workflows/monitored_workflow.py
+from typing import Any, Dict
+from temporalio import workflow
+from utils.metrics import metrics, TimerContext
+from workflows.base_workflow import BaseWorkflow
+
+@workflow.defn
+class MonitoredWorkflow(BaseWorkflow):
+    """Workflow with performance monitoring."""
+
+    @workflow.run
+    async def run(self, input_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Execute workflow with performance monitoring."""
+        workflow_id = workflow.info().workflow_id
+
+        # Setup logging context
+        context = WorkflowExecutionContext(
+            workflow_id=workflow_id,
+            workflow_type="monitored_workflow",
+            user_id=input_data.get("user_id"),
+            request_id=input_data.get("request_id")
+        )
+        self._setup_logging(context)
+
+        # Record workflow start
+        self.log_workflow_start(input_data)
+        metrics.increment_counter("workflow.started", tags={"type": "monitored_workflow"})
+
+        try:
+            with TimerContext("workflow.execution_time", {"workflow_id": workflow_id}):
+                result = await self._execute_workflow(input_data)
+
+            # Record successful completion
+            self.log_workflow_completion(result)
+            metrics.increment_counter("workflow.completed", tags={"type": "monitored_workflow"})
+
+            return result
+
+        except Exception as e:
+            # Record failure
+            self.log_workflow_error(e)
+            metrics.increment_counter("workflow.failed", tags={"type": "monitored_workflow"})
+            raise
+
+    async def _execute_workflow(self, input_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Execute the main workflow logic with monitoring."""
+        # Example workflow steps with monitoring
+        result = {}
+
+        # Step 1: Data validation
+        with TimerContext("workflow.step.validation"):
+            validation_result = await self._validate_input(input_data)
+            result["validation"] = validation_result
+
+        # Step 2: Data processing
+        with TimerContext("workflow.step.processing"):
+            processing_result = await self._process_data(input_data)
+            result["processing"] = processing_result
+
+        # Step 3: Data storage
+        with TimerContext("workflow.step.storage"):
+            storage_result = await self._store_data(processing_result)
+            result["storage"] = storage_result
+
+        return result
+```
+
+## Health Checks and Monitoring
+
+### Health Check Endpoints
+```python
+# api/health.py
+from fastapi import APIRouter, Depends, HTTPException
+from typing import Dict, Any
+from datetime import datetime
+from utils.metrics import metrics
+from utils.structured_logging import StructuredLogger
+
+router = APIRouter(prefix="/health", tags=["health"])
+
+@router.get("/")
+async def health_check() -> Dict[str, Any]:
+    """Basic health check endpoint."""
+    return {
+        "status": "healthy",
+        "timestamp": datetime.utcnow().isoformat(),
+        "service": "temporal-workflow-service"
+    }
+
+@router.get("/detailed")
+async def detailed_health_check() -> Dict[str, Any]:
+    """Detailed health check with metrics."""
+    try:
+        # Get current metrics
+        metrics_summary = metrics.get_summary_stats()
+
+        # Check system health
+        health_status = {
+            "status": "healthy",
+            "timestamp": datetime.utcnow().isoformat(),
+            "service": "temporal-workflow-service",
+            "version": "1.0.0",
+            "metrics": metrics_summary,
+            "checks": {
+                "temporal_connection": await _check_temporal_connection(),
+                "database_connection": await _check_database_connection(),
+                "redis_connection": await _check_redis_connection()
+            }
+        }
+
+        # Determine overall health
+        all_checks_healthy = all(
+            check["status"] == "healthy"
+            for check in health_status["checks"].values()
+        )
+
+        if not all_checks_healthy:
+            health_status["status"] = "unhealthy"
+
+        return health_status
+
+    except Exception as e:
+        logger.error(f"Health check failed: {e}")
+        raise HTTPException(status_code=503, detail="Service unhealthy")
+
+async def _check_temporal_connection() -> Dict[str, Any]:
+    """Check Temporal server connection."""
+    try:
+        # Implement actual connection check
+        return {"status": "healthy", "message": "Temporal connection OK"}
+    except Exception as e:
+        return {"status": "unhealthy", "message": str(e)}
+
+async def _check_database_connection() -> Dict[str, Any]:
+    """Check database connection."""
+    try:
+        # Implement actual connection check
+        return {"status": "healthy", "message": "Database connection OK"}
+    except Exception as e:
+        return {"status": "unhealthy", "message": str(e)}
+
+async def _check_redis_connection() -> Dict[str, Any]:
+    """Check Redis connection."""
+    try:
+        # Implement actual connection check
+        return {"status": "healthy", "message": "Redis connection OK"}
+    except Exception as e:
+        return {"status": "unhealthy", "message": str(e)}
+```
+
+## Best Practices
+
+### Logging Best Practices
+- Use structured logging with consistent context
+- Log at appropriate levels (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+- Include correlation IDs for request tracing
+- Log workflow and activity execution details
+- Use JSON formatting for log aggregation systems
+- Implement log rotation and retention policies
+
+### Monitoring Best Practices
+- Collect metrics for all critical operations
+- Monitor workflow execution times and success rates
+- Track resource usage and performance
+- Implement health checks for all dependencies
+- Use correlation IDs for distributed tracing
+- Set up alerts for critical failures
+
+### Performance Considerations
+- Use async logging to avoid blocking operations
+- Batch log entries when possible
+- Use appropriate log levels to reduce noise
+- Implement log sampling for high-volume operations
+- Monitor log volume and storage usage

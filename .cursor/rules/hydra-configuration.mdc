@@ -1,0 +1,479 @@
+---
+description: Hydra configuration management standards and best practices
+globs: ["**/conf/*.yaml", "**/config/*.py", "**/main.py"]
+alwaysApply: true
+---
+
+# Hydra Configuration Management Standards
+
+## Configuration Structure
+
+### Directory Organization
+```
+conf/
+├── config.yaml              # Main configuration file
+├── config/
+│   ├── app.yaml             # Application-specific settings
+│   ├── temporal.yaml        # Temporal server configuration
+│   ├── database.yaml        # Database connection settings
+│   ├── logging.yaml         # Logging configuration
+│   └── api.yaml             # FastAPI settings
+├── env/
+│   ├── development.yaml     # Development environment overrides
+│   ├── staging.yaml         # Staging environment overrides
+│   └── production.yaml      # Production environment overrides
+└── config_schema.yaml       # Configuration schema validation
+```
+
+### Main Configuration File
+```yaml
+# conf/config.yaml
+defaults:
+  - app: app
+  - temporal: temporal
+  - database: database
+  - logging: logging
+  - api: api
+  - _self_
+
+# Global settings
+app_name: "temporal-workflow-service"
+version: "1.0.0"
+environment: ${oc.env:ENVIRONMENT,development}
+
+# Hydra settings
+hydra:
+  run:
+    dir: ./outputs/${now:%Y-%m-%d_%H-%M-%S}
+  job:
+    name: ${app_name}
+    chdir: true
+```
+
+## Configuration Files
+
+### Application Configuration
+```yaml
+# conf/config/app.yaml
+app:
+  name: "temporal-workflow-service"
+  version: "1.0.0"
+  description: "Temporal workflow service with FastAPI"
+
+  # Feature flags
+  features:
+    enable_metrics: true
+    enable_tracing: true
+    enable_rate_limiting: true
+    enable_authentication: true
+
+  # Application settings
+  settings:
+    debug: false
+    reload: false
+    workers: 1
+    max_requests: 1000
+    timeout: 30
+```
+
+### Temporal Configuration
+```yaml
+# conf/config/temporal.yaml
+temporal:
+  server:
+    host: "localhost"
+    port: 7233
+    namespace: "default"
+
+  # Worker configuration
+  worker:
+    task_queue: "workflow-task-queue"
+    max_concurrent_activities: 10
+    max_concurrent_workflows: 10
+    max_concurrent_local_activities: 10
+
+  # Workflow configuration
+  workflow:
+    execution_timeout: "1h"
+    run_timeout: "30m"
+    task_timeout: "10m"
+    retry_policy:
+      initial_interval: "1s"
+      maximum_interval: "60s"
+      maximum_attempts: 3
+      backoff_coefficient: 2.0
+
+  # Activity configuration
+  activity:
+    start_to_close_timeout: "5m"
+    schedule_to_close_timeout: "10m"
+    heartbeat_timeout: "30s"
+    retry_policy:
+      initial_interval: "1s"
+      maximum_interval: "60s"
+      maximum_attempts: 3
+      backoff_coefficient: 2.0
+```
+
+### Database Configuration
+```yaml
+# conf/config/database.yaml
+database:
+  # Primary database
+  primary:
+    url: "postgresql://user:password@localhost:5432/temporal_db"
+    pool_size: 10
+    max_overflow: 20
+    pool_timeout: 30
+    pool_recycle: 3600
+
+  # Redis for caching
+  redis:
+    url: "redis://localhost:6379/0"
+    max_connections: 10
+    socket_timeout: 5
+    socket_connect_timeout: 5
+    retry_on_timeout: true
+
+  # Connection settings
+  connection:
+    echo: false
+    echo_pool: false
+    pool_pre_ping: true
+    pool_recycle: 3600
+```
+
+### Logging Configuration
+```yaml
+# conf/config/logging.yaml
+logging:
+  version: 1
+  disable_existing_loggers: false
+
+  formatters:
+    standard:
+      format: "%(asctime)s [%(levelname)s] %(name)s: %(message)s"
+      datefmt: "%Y-%m-%d %H:%M:%S"
+
+    detailed:
+      format: "%(asctime)s [%(levelname)s] %(name)s:%(funcName)s:%(lineno)d - %(message)s"
+      datefmt: "%Y-%m-%d %H:%M:%S"
+
+    json:
+      format: json
+      class: pythonjsonlogger.jsonlogger.JsonFormatter
+
+  handlers:
+    console:
+      class: logging.StreamHandler
+      level: INFO
+      formatter: standard
+      stream: ext://sys.stdout
+
+    file:
+      class: logging.handlers.RotatingFileHandler
+      level: DEBUG
+      formatter: detailed
+      filename: logs/app.log
+      maxBytes: 10485760  # 10MB
+      backupCount: 5
+
+    error_file:
+      class: logging.handlers.RotatingFileHandler
+      level: ERROR
+      formatter: detailed
+      filename: logs/error.log
+      maxBytes: 10485760  # 10MB
+      backupCount: 5
+
+  loggers:
+    temporal:
+      level: INFO
+      handlers: [console, file]
+      propagate: false
+
+    fastapi:
+      level: INFO
+      handlers: [console, file]
+      propagate: false
+
+    sqlalchemy:
+      level: WARNING
+      handlers: [console, file]
+      propagate: false
+
+  root:
+    level: INFO
+    handlers: [console, file, error_file]
+```
+
+### API Configuration
+```yaml
+# conf/config/api.yaml
+api:
+  title: "Temporal Workflow API"
+  description: "API for managing Temporal workflows"
+  version: "1.0.0"
+
+  # Server settings
+  server:
+    host: "0.0.0.0"
+    port: 8000
+    reload: false
+    workers: 1
+
+  # CORS settings
+  cors:
+    allow_origins: ["*"]
+    allow_credentials: true
+    allow_methods: ["*"]
+    allow_headers: ["*"]
+
+  # Rate limiting
+  rate_limit:
+    enabled: true
+    requests_per_minute: 100
+    burst_size: 20
+
+  # Authentication
+  auth:
+    enabled: true
+    secret_key: ${oc.env:SECRET_KEY,default-secret-key}
+    algorithm: "HS256"
+    access_token_expire_minutes: 30
+
+  # Documentation
+  docs:
+    enabled: true
+    path: "/docs"
+    redoc_path: "/redoc"
+    openapi_path: "/openapi.json"
+```
+
+## Environment-Specific Overrides
+
+### Development Environment
+```yaml
+# conf/env/development.yaml
+# @package _global_
+defaults:
+  - override /database/primary: database/primary
+  - override /logging: logging
+
+app:
+  settings:
+    debug: true
+    reload: true
+
+database:
+  primary:
+    url: "postgresql://dev_user:dev_pass@localhost:5432/temporal_dev"
+    echo: true
+
+logging:
+  handlers:
+    console:
+      level: DEBUG
+  root:
+    level: DEBUG
+
+api:
+  server:
+    reload: true
+  rate_limit:
+    enabled: false
+```
+
+### Production Environment
+```yaml
+# conf/env/production.yaml
+# @package _global_
+defaults:
+  - override /database/primary: database/primary
+  - override /logging: logging
+
+app:
+  settings:
+    debug: false
+    reload: false
+    workers: 4
+
+database:
+  primary:
+    url: ${oc.env:DATABASE_URL}
+    pool_size: 20
+    max_overflow: 30
+
+logging:
+  handlers:
+    console:
+      level: WARNING
+  root:
+    level: INFO
+
+api:
+  server:
+    workers: 4
+  rate_limit:
+    enabled: true
+    requests_per_minute: 1000
+```
+
+## Configuration Usage in Code
+
+### Hydra Integration
+```python
+# main.py
+import hydra
+from omegaconf import DictConfig, OmegaConf
+from loguru import logger
+import asyncio
+
+@hydra.main(config_path="conf", config_name="config", version_base=None)
+def main(cfg: DictConfig) -> None:
+    """Main application entry point with Hydra configuration."""
+    # Configure logging
+    setup_logging(cfg.logging)
+
+    logger.info(f"Starting {cfg.app.name} v{cfg.app.version}")
+    logger.debug(f"Configuration:\n{OmegaConf.to_yaml(cfg)}")
+
+    # Start the application
+    asyncio.run(start_application(cfg))
+
+def setup_logging(logging_config: DictConfig) -> None:
+    """Setup logging configuration from Hydra config."""
+    import logging.config
+
+    # Convert OmegaConf to regular dict for logging.config
+    logging_dict = OmegaConf.to_container(logging_config, resolve=True)
+    logging.config.dictConfig(logging_dict)
+
+async def start_application(cfg: DictConfig) -> None:
+    """Start the FastAPI application with Temporal worker."""
+    from fastapi import FastAPI
+    from temporalio.client import Client
+    from temporalio.worker import Worker
+
+    # Create FastAPI app
+    app = create_fastapi_app(cfg)
+
+    # Create Temporal client
+    client = await Client.connect(
+        f"{cfg.temporal.server.host}:{cfg.temporal.server.port}",
+        namespace=cfg.temporal.server.namespace
+    )
+
+    # Create and start worker
+    worker = Worker(
+        client,
+        task_queue=cfg.temporal.worker.task_queue,
+        workflows=[],  # Add your workflows here
+        activities=[],  # Add your activities here
+        max_concurrent_activities=cfg.temporal.worker.max_concurrent_activities,
+        max_concurrent_workflows=cfg.temporal.worker.max_concurrent_workflows,
+    )
+
+    # Start worker in background
+    asyncio.create_task(worker.run())
+
+    # Start FastAPI server
+    import uvicorn
+    uvicorn.run(
+        app,
+        host=cfg.api.server.host,
+        port=cfg.api.server.port,
+        workers=cfg.api.server.workers,
+        reload=cfg.api.server.reload
+    )
+
+if __name__ == "__main__":
+    main()
+```
+
+### Configuration Validation
+```python
+# config/validation.py
+from dataclasses import dataclass
+from typing import Optional, List
+from omegaconf import DictConfig
+import hydra
+from hydra.core.config_store import ConfigStore
+
+@dataclass
+class AppConfig:
+    """Application configuration schema."""
+    name: str
+    version: str
+    environment: str
+    debug: bool = False
+    workers: int = 1
+
+@dataclass
+class TemporalConfig:
+    """Temporal configuration schema."""
+    server_host: str
+    server_port: int
+    namespace: str
+    task_queue: str
+
+@dataclass
+class DatabaseConfig:
+    """Database configuration schema."""
+    url: str
+    pool_size: int = 10
+    max_overflow: int = 20
+
+@dataclass
+class RootConfig:
+    """Root configuration schema."""
+    app: AppConfig
+    temporal: TemporalConfig
+    database: DatabaseConfig
+
+# Register configuration schemas
+cs = ConfigStore.instance()
+cs.store(name="config", node=RootConfig)
+
+def validate_config(cfg: DictConfig) -> None:
+    """Validate configuration against schema."""
+    try:
+        # Convert to structured config for validation
+        structured_cfg = OmegaConf.structured(RootConfig)
+        OmegaConf.merge(structured_cfg, cfg)
+
+        # Validate required fields
+        if not cfg.app.name:
+            raise ValueError("App name is required")
+
+        if not cfg.temporal.server_host:
+            raise ValueError("Temporal server host is required")
+
+        if not cfg.database.url:
+            raise ValueError("Database URL is required")
+
+    except Exception as e:
+        logger.error(f"Configuration validation failed: {e}")
+        raise
+```
+
+## Best Practices
+
+### Configuration Management
+- Use environment-specific overrides for different deployment environments
+- Validate configuration at startup
+- Use structured configuration schemas for type safety
+- Keep sensitive data in environment variables
+- Use Hydra's variable interpolation for dynamic values
+
+### Security
+- Never commit sensitive configuration values to version control
+- Use environment variables for secrets
+- Implement proper configuration validation
+- Use different configurations for different environments
+
+### Organization
+- Group related configuration settings together
+- Use descriptive names for configuration keys
+- Document configuration options
+- Keep configuration files focused and modular

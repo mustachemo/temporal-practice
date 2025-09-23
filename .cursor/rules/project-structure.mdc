@@ -1,0 +1,579 @@
+---
+description: Project structure and organization standards for Temporal workflow applications
+globs: ["**/*.py", "**/*.yaml", "**/*.yml", "**/*.toml"]
+alwaysApply: true
+---
+
+# Project Structure Standards
+
+## Directory Organization
+
+### Root Level Structure
+```
+temporal-practice/
+├── .cursor/                    # Cursor IDE rules and configuration
+│   └── rules/                 # Project-specific cursor rules
+├── .github/                   # GitHub workflows and templates
+│   └── workflows/
+├── conf/                      # Hydra configuration files
+│   ├── config.yaml           # Main configuration
+│   ├── config/               # Configuration modules
+│   └── env/                  # Environment-specific overrides
+├── docs/                      # Project documentation
+│   ├── architecture.md       # System architecture
+│   ├── api.md               # API documentation
+│   └── deployment.md         # Deployment guide
+├── src/                       # Source code
+│   ├── __init__.py
+│   ├── main.py               # Application entry point
+│   ├── api/                  # FastAPI application
+│   ├── workflows/            # Temporal workflows
+│   ├── activities/           # Temporal activities
+│   ├── workers/              # Temporal workers
+│   ├── models/               # Pydantic data models
+│   ├── services/             # Business logic services
+│   ├── utils/                # Utility functions
+│   └── config/               # Configuration management
+├── tests/                     # Test suite
+│   ├── __init__.py
+│   ├── conftest.py           # Pytest configuration
+│   ├── unit/                 # Unit tests
+│   ├── integration/          # Integration tests
+│   ├── e2e/                  # End-to-end tests
+│   └── utils/                # Test utilities
+├── scripts/                   # Utility scripts
+│   ├── setup_dev.py          # Development setup
+│   ├── run_worker.py         # Worker startup script
+│   └── migrate_db.py         # Database migration script
+├── docker/                    # Docker configuration
+│   ├── Dockerfile            # Main application image
+│   ├── Dockerfile.worker     # Worker-specific image
+│   └── docker-compose.yml    # Local development setup
+├── logs/                      # Log files (gitignored)
+├── outputs/                   # Hydra outputs (gitignored)
+├── .env.example              # Environment variables template
+├── .gitignore                # Git ignore rules
+├── .python-version           # Python version specification
+├── pyproject.toml            # Project dependencies and configuration
+├── Makefile                  # Development automation
+├── README.md                 # Project documentation
+└── LICENSE                   # License file
+```
+
+## Source Code Organization
+
+### API Layer (`src/api/`)
+```
+api/
+├── __init__.py
+├── main.py                   # FastAPI app creation
+├── dependencies.py           # API dependencies
+├── middleware.py             # Custom middleware
+├── routes/
+│   ├── __init__.py
+│   ├── workflows.py          # Workflow management endpoints
+│   ├── health.py             # Health check endpoints
+│   └── metrics.py            # Metrics endpoints
+└── schemas/
+    ├── __init__.py
+    ├── workflow.py           # Workflow request/response schemas
+    ├── health.py             # Health check schemas
+    └── common.py             # Common schemas
+```
+
+### Workflow Layer (`src/workflows/`)
+```
+workflows/
+├── __init__.py
+├── base.py                   # Base workflow class
+├── complex_workflow.py       # Main complex workflow
+├── data_processing.py        # Data processing workflow
+├── notification.py           # Notification workflow
+└── utils/
+    ├── __init__.py
+    ├── retry_policies.py     # Retry policy configurations
+    └── timeouts.py           # Timeout configurations
+```
+
+### Activity Layer (`src/activities/`)
+```
+activities/
+├── __init__.py
+├── base.py                   # Base activity class
+├── data_processing.py        # Data processing activities
+├── external_api.py           # External API calls
+├── database.py               # Database operations
+├── notification.py           # Notification activities
+└── utils/
+    ├── __init__.py
+    ├── validators.py         # Data validation utilities
+    └── transformers.py       # Data transformation utilities
+```
+
+### Models Layer (`src/models/`)
+```
+models/
+├── __init__.py
+├── base.py                   # Base model classes
+├── workflow.py               # Workflow-related models
+├── activity.py               # Activity-related models
+├── user.py                   # User-related models
+└── common.py                 # Common data structures
+```
+
+### Services Layer (`src/services/`)
+```
+services/
+├── __init__.py
+├── workflow_service.py       # Workflow business logic
+├── notification_service.py   # Notification service
+├── data_service.py           # Data management service
+└── external_api_service.py   # External API integration
+```
+
+### Utils Layer (`src/utils/`)
+```
+utils/
+├── __init__.py
+├── logging.py                # Logging configuration
+├── metrics.py                # Metrics collection
+├── database.py               # Database utilities
+├── temporal.py               # Temporal client utilities
+└── validation.py             # Data validation utilities
+```
+
+## Configuration Management
+
+### Hydra Configuration Structure
+```
+conf/
+├── config.yaml               # Main configuration file
+├── config/
+│   ├── app.yaml             # Application settings
+│   ├── temporal.yaml        # Temporal configuration
+│   ├── database.yaml        # Database settings
+│   ├── logging.yaml         # Logging configuration
+│   ├── api.yaml             # FastAPI settings
+│   ├── redis.yaml           # Redis configuration
+│   └── monitoring.yaml      # Monitoring settings
+├── env/
+│   ├── development.yaml     # Development overrides
+│   ├── staging.yaml         # Staging overrides
+│   └── production.yaml      # Production overrides
+└── config_schema.yaml       # Configuration validation schema
+```
+
+## Testing Structure
+
+### Test Organization
+```
+tests/
+├── __init__.py
+├── conftest.py               # Pytest configuration and fixtures
+├── unit/                     # Unit tests
+│   ├── __init__.py
+│   ├── test_workflows/       # Workflow unit tests
+│   ├── test_activities/      # Activity unit tests
+│   ├── test_services/        # Service unit tests
+│   ├── test_models/          # Model unit tests
+│   └── test_utils/           # Utility unit tests
+├── integration/              # Integration tests
+│   ├── __init__.py
+│   ├── test_workflow_integration.py
+│   ├── test_api_integration.py
+│   └── test_database_integration.py
+├── e2e/                      # End-to-end tests
+│   ├── __init__.py
+│   ├── test_complete_workflow.py
+│   └── test_api_workflow.py
+└── utils/                    # Test utilities
+    ├── __init__.py
+    ├── factories.py          # Test data factories
+    ├── mocks.py              # Mock objects
+    └── helpers.py            # Test helper functions
+```
+
+## Docker Configuration
+
+### Multi-Stage Dockerfile
+```dockerfile
+# docker/Dockerfile
+FROM python:3.11-slim as builder
+
+# Set working directory
+WORKDIR /app
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy requirements and install Python dependencies
+COPY pyproject.toml ./
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir -e .
+
+# Copy source code
+COPY src/ ./src/
+COPY conf/ ./conf/
+
+# Production stage
+FROM python:3.11-slim as production
+
+# Create non-root user
+RUN groupadd -r appuser && useradd -r -g appuser appuser
+
+# Set working directory
+WORKDIR /app
+
+# Copy Python dependencies from builder
+COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
+COPY --from=builder /usr/local/bin /usr/local/bin
+
+# Copy application code
+COPY --from=builder /app/src ./src
+COPY --from=builder /app/conf ./conf
+
+# Create necessary directories
+RUN mkdir -p logs outputs && \
+    chown -R appuser:appuser /app
+
+# Switch to non-root user
+USER appuser
+
+# Expose port
+EXPOSE 8000
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:8000/health || exit 1
+
+# Default command
+CMD ["python", "-m", "src.main"]
+```
+
+### Docker Compose for Development
+```yaml
+# docker/docker-compose.yml
+version: '3.8'
+
+services:
+  temporal:
+    image: temporalio/auto-setup:latest
+    ports:
+      - "7233:7233"
+      - "8080:8080"
+    environment:
+      - DB=postgresql
+      - DB_PORT=5432
+      - POSTGRES_USER=temporal
+      - POSTGRES_PWD=temporal
+      - POSTGRES_SEEDS=postgresql
+      - DYNAMIC_CONFIG_FILE_PATH=config/dynamicconfig/development-sql.yaml
+
+  postgresql:
+    image: postgres:15
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_DB=temporal
+      - POSTGRES_USER=temporal
+      - POSTGRES_PASSWORD=temporal
+    volumes:
+      - postgresql_data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+
+  app:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - ENVIRONMENT=development
+      - DATABASE_URL=postgresql://temporal:temporal@postgresql:5432/temporal
+      - REDIS_URL=redis://redis:6379/0
+      - TEMPORAL_HOST=temporal:7233
+    volumes:
+      - ../src:/app/src
+      - ../conf:/app/conf
+    depends_on:
+      - temporal
+      - postgresql
+      - redis
+    command: ["python", "-m", "src.main", "--config-name=config", "environment=development"]
+
+  worker:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    environment:
+      - ENVIRONMENT=development
+      - DATABASE_URL=postgresql://temporal:temporal@postgresql:5432/temporal
+      - REDIS_URL=redis://redis:6379/0
+      - TEMPORAL_HOST=temporal:7233
+    volumes:
+      - ../src:/app/src
+      - ../conf:/app/conf
+    depends_on:
+      - temporal
+      - postgresql
+      - redis
+    command: ["python", "-m", "scripts.run_worker", "--config-name=config", "environment=development"]
+
+volumes:
+  postgresql_data:
+  redis_data:
+```
+
+## Development Tools
+
+### Makefile
+```makefile
+# Makefile
+.PHONY: help install test lint format clean build run-dev run-worker
+
+help: ## Show this help message
+	@echo "Available commands:"
+	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
+
+install: ## Install dependencies
+	uv pip install -e ".[dev]"
+
+test: ## Run tests
+	pytest tests/ -v --cov=src --cov-report=html --cov-report=term
+
+test-unit: ## Run unit tests only
+	pytest tests/unit/ -v
+
+test-integration: ## Run integration tests only
+	pytest tests/integration/ -v
+
+test-e2e: ## Run end-to-end tests only
+	pytest tests/e2e/ -v
+
+lint: ## Run linting
+	uv lint src/ tests/
+
+format: ## Format code
+	uv format src/ tests/
+
+clean: ## Clean build artifacts
+	rm -rf build/
+	rm -rf dist/
+	rm -rf *.egg-info/
+	rm -rf .pytest_cache/
+	rm -rf .coverage
+	rm -rf htmlcov/
+	find . -type d -name __pycache__ -exec rm -rf {} +
+	find . -type f -name "*.pyc" -delete
+
+build: ## Build Docker image
+	docker build -f docker/Dockerfile -t temporal-practice:latest .
+
+run-dev: ## Run development server
+	python -m src.main --config-name=config environment=development
+
+run-worker: ## Run Temporal worker
+	python -m scripts.run_worker --config-name=config environment=development
+
+run-docker: ## Run with Docker Compose
+	docker-compose -f docker/docker-compose.yml up --build
+
+stop-docker: ## Stop Docker Compose
+	docker-compose -f docker/docker-compose.yml down
+
+logs: ## Show application logs
+	docker-compose -f docker/docker-compose.yml logs -f app
+
+logs-worker: ## Show worker logs
+	docker-compose -f docker/docker-compose.yml logs -f worker
+```
+
+### pyproject.toml
+```toml
+# pyproject.toml
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "temporal-practice"
+version = "1.0.0"
+description = "Temporal workflow practice project with FastAPI and Hydra"
+authors = [
+    {name = "Your Name", email = "your.email@example.com"}
+]
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.11"
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+
+dependencies = [
+    "temporalio>=1.4.0",
+    "fastapi>=0.104.0",
+    "uvicorn[standard]>=0.24.0",
+    "hydra-core>=1.3.0",
+    "omegaconf>=2.3.0",
+    "pydantic>=2.5.0",
+    "loguru>=0.7.0",
+    "rich>=13.7.0",
+    "httpx>=0.25.0",
+    "sqlalchemy>=2.0.0",
+    "alembic>=1.13.0",
+    "redis>=5.0.0",
+    "python-multipart>=0.0.6",
+    "python-jose[cryptography]>=3.3.0",
+    "passlib[bcrypt]>=1.7.4",
+    "slowapi>=0.1.9",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4.0",
+    "pytest-asyncio>=0.21.0",
+    "pytest-cov>=4.1.0",
+    "pytest-mock>=3.12.0",
+    "black>=23.0.0",
+    "isort>=5.12.0",
+    "flake8>=6.1.0",
+    "mypy>=1.7.0",
+    "pre-commit>=3.5.0",
+    "faker>=20.0.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/yourusername/temporal-practice"
+Repository = "https://github.com/yourusername/temporal-practice"
+Documentation = "https://github.com/yourusername/temporal-practice#readme"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.black]
+line-length = 88
+target-version = ['py311']
+include = '\.pyi?$'
+extend-exclude = '''
+/(
+  # directories
+  \.eggs
+  | \.git
+  | \.hg
+  | \.mypy_cache
+  | \.tox
+  | \.venv
+  | build
+  | dist
+)/
+'''
+
+[tool.isort]
+profile = "black"
+multi_line_output = 3
+line_length = 88
+known_first_party = ["src"]
+
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+disallow_untyped_decorators = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
+warn_unreachable = true
+strict_equality = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = [
+    "--strict-markers",
+    "--strict-config",
+    "--verbose",
+    "--tb=short",
+    "--cov=src",
+    "--cov-report=term-missing",
+    "--cov-report=html",
+    "--cov-fail-under=80",
+]
+markers = [
+    "unit: Unit tests",
+    "integration: Integration tests",
+    "e2e: End-to-end tests",
+    "slow: Slow running tests",
+]
+asyncio_mode = "auto"
+
+[tool.coverage.run]
+source = ["src"]
+omit = [
+    "*/tests/*",
+    "*/test_*",
+    "*/conftest.py",
+    "*/__init__.py",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "if self.debug:",
+    "if settings.DEBUG",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if 0:",
+    "if __name__ == .__main__.:",
+    "class .*\\bProtocol\\):",
+    "@(abc\\.)?abstractmethod",
+]
+```
+
+## Best Practices
+
+### Code Organization
+- Keep related functionality together
+- Use clear, descriptive module and package names
+- Separate concerns across different layers
+- Minimize coupling between modules
+- Use dependency injection for external dependencies
+
+### File Naming
+- Use `snake_case` for Python files
+- Use descriptive names that indicate purpose
+- Group related files in appropriate directories
+- Use `__init__.py` files to control imports
+
+### Import Organization
+- Group imports: standard library, third-party, local
+- Sort each group alphabetically
+- Use absolute imports when possible
+- Avoid circular imports
+- Use `from __future__ import annotations` for forward references
+
+### Documentation
+- Document all public APIs
+- Use docstrings for classes, functions, and methods
+- Include type hints for better documentation
+- Maintain up-to-date README and architecture docs
+- Use comments sparingly, only for complex logic
