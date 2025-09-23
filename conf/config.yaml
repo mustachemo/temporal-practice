@@ -3,7 +3,7 @@ defaults:
   - temporal: temporal
   - database: database
   - logging: logging
-  - api: api
+  - api
   - _self_
 
 # Global settings

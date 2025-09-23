@@ -13,7 +13,3 @@ system.advancedVisibilityWritingMode:
 system.enableCrossNamespaceCommands:
   - value: true
   - constraints: {}
-
-system.enableReadFromClosedExecutionV2:
-  - value: true
-  - constraints: {}

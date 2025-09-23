@@ -64,7 +64,6 @@ def create_app(cfg: DictConfig) -> FastAPI:
     app.include_router(workflows.router, prefix="/api/v1")
     app.include_router(health.router, prefix="/api/v1")
 
-
     return app
 
 
@@ -92,7 +91,7 @@ def setup_exception_handlers(app: FastAPI) -> None:
     @app.exception_handler(Exception)
     async def general_exception_handler(request: Any, exc: Exception) -> JSONResponse:
         """Handle unexpected exceptions."""
-        logger.error(f"Unexpected error: {exc!r}", exc_info=True)
+        logger.error("Unexpected error: {}", exc, exc_info=True)
         return JSONResponse(
             status_code=500,
             content=ErrorResponse(

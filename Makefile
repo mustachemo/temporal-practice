@@ -87,8 +87,8 @@ docker-clean: ## Clean up Docker resources
 start-temporal: ## Start only Temporal services (server + UI + postgres)
 	docker-compose up -d postgresql temporal temporal-ui
 
-start-app: ## Start application services (API + worker)
-	docker-compose up -d api worker
+start-app: ## Start all services (Temporal, API, Worker, UI)
+	docker-compose up -d
 
 restart-api: ## Restart API service
 	docker-compose restart api

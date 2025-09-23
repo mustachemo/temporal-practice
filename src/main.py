@@ -18,7 +18,7 @@ from src.workers.temporal_worker import start_temporal_worker
 
 
 # ================================== Functions ================================ #
-@hydra.main(config_path="../conf", config_name="config", version_base=None)
+@hydra.main(config_path="/app/conf", config_name="config", version_base=None)
 def main(cfg: DictConfig) -> None:
     """Main function orchestrated by Hydra.
 
