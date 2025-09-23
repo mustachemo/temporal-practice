@@ -15,13 +15,14 @@ from loguru import logger
 from src.api.routes import workflows, health
 from src.models.workflow import ErrorResponse
 
+
 # ================================== Functions ================================ #
 def create_app(cfg: DictConfig) -> FastAPI:
     """Create and configure the FastAPI application.
-    
+
     Args:
         cfg: Hydra configuration object.
-        
+
     Returns:
         Configured FastAPI application instance.
     """
@@ -34,7 +35,7 @@ def create_app(cfg: DictConfig) -> FastAPI:
         redoc_url=cfg.api.docs.redoc_path if cfg.api.docs.enabled else None,
         openapi_url=cfg.api.docs.openapi_path if cfg.api.docs.enabled else None,
     )
-    
+
     # Add CORS middleware
     app.add_middleware(
         CORSMiddleware,
@@ -43,35 +44,36 @@ def create_app(cfg: DictConfig) -> FastAPI:
         allow_methods=cfg.api.cors.allow_methods,
         allow_headers=cfg.api.cors.allow_headers,
     )
-    
+
     # Add exception handlers
     setup_exception_handlers(app)
-    
+
     # Include routers
     app.include_router(workflows.router, prefix="/api/v1")
     app.include_router(health.router, prefix="/api/v1")
-    
+
     # Add startup and shutdown events
     @app.on_event("startup")
     async def startup_event() -> None:
         """Application startup event."""
         logger.info("FastAPI application started")
-    
+
     @app.on_event("shutdown")
     async def shutdown_event() -> None:
         """Application shutdown event."""
         logger.info("FastAPI application shutting down")
-    
+
     return app
+
 
 def setup_exception_handlers(app: FastAPI) -> None:
     """Setup global exception handlers for the application.
-    
+
     Args:
         app: FastAPI application instance.
     """
     from fastapi import HTTPException
-    
+
     @app.exception_handler(HTTPException)
     async def http_exception_handler(request: Any, exc: HTTPException) -> JSONResponse:
         """Handle HTTP exceptions with consistent error format."""
@@ -81,10 +83,10 @@ def setup_exception_handlers(app: FastAPI) -> None:
             content=ErrorResponse(
                 error="HTTP_ERROR",
                 message=exc.detail,
-                details={"status_code": exc.status_code}
-            ).dict()
+                details={"status_code": exc.status_code},
+            ).dict(),
         )
-    
+
     @app.exception_handler(Exception)
     async def general_exception_handler(request: Any, exc: Exception) -> JSONResponse:
         """Handle unexpected exceptions."""
@@ -94,6 +96,6 @@ def setup_exception_handlers(app: FastAPI) -> None:
             content=ErrorResponse(
                 error="INTERNAL_ERROR",
                 message="An unexpected error occurred",
-                details={"exception_type": type(exc).__name__}
-            ).dict()
+                details={"exception_type": type(exc).__name__},
+            ).dict(),
         )

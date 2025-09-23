@@ -16,25 +16,26 @@ from src.workflows.simple_workflow import (
     SimpleWorkflow,
     validate_input_activity,
     process_data_activity,
-    store_data_activity
+    store_data_activity,
 )
+
 
 # ================================== Functions ================================ #
 async def start_temporal_worker(cfg: DictConfig) -> None:
     """Start the Temporal worker.
-    
+
     Args:
         cfg: Hydra configuration object.
     """
     try:
         logger.info("Starting Temporal worker")
-        
+
         # Connect to Temporal server
         client = await Client.connect(
             f"{cfg.temporal.server.host}:{cfg.temporal.server.port}",
-            namespace=cfg.temporal.server.namespace
+            namespace=cfg.temporal.server.namespace,
         )
-        
+
         # Create worker
         worker = Worker(
             client,
@@ -43,24 +44,25 @@ async def start_temporal_worker(cfg: DictConfig) -> None:
             activities=[
                 validate_input_activity,
                 process_data_activity,
-                store_data_activity
+                store_data_activity,
             ],
             max_concurrent_activities=cfg.temporal.worker.max_concurrent_activities,
             max_concurrent_workflows=cfg.temporal.worker.max_concurrent_workflows,
         )
-        
+
         logger.info("Temporal worker configured and starting")
-        
+
         # Start worker (this will run indefinitely)
         await worker.run()
-        
+
     except Exception as e:
         logger.error(f"Failed to start Temporal worker: {e}")
         raise
 
+
 async def run_worker_standalone(cfg: DictConfig) -> None:
     """Run the Temporal worker as a standalone process.
-    
+
     Args:
         cfg: Hydra configuration object.
     """
