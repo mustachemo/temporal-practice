@@ -53,9 +53,17 @@ async def start_workflow(
         # Map workflow type string to actual workflow class
         workflow_class = SimpleWorkflow  # For now, only support SimpleWorkflow
 
+        # Create WorkflowInput object from request data
+        from src.models.workflow import WorkflowInput
+        workflow_input = WorkflowInput(
+            request_id=f"{request.workflow_type}_{request.user_id}_{datetime.now().timestamp()}",
+            user_id=request.user_id,
+            parameters=request.input_data,
+        )
+
         workflow_handle = await client.start_workflow(
             workflow_class,
-            args=[request.input_data],
+            args=[workflow_input],
             id=f"{request.workflow_type}_{request.user_id}_{datetime.now().timestamp()}",
             task_queue="workflow-task-queue",
         )

@@ -21,7 +21,7 @@ class WorkflowRequest(BaseModel):
         "json_schema_extra": {
             "example": {
                 "workflow_type": "data_processing",
-                "input_data": {"file_path": "/path/to/file", "options": {}},
+                "input_data": {"required_field": "test_value", "options": {}},
                 "user_id": "user_123",
             }
         }

@@ -2,15 +2,16 @@
 
 # ================================== Imports ================================== #
 # Standard Library
+import logging
 import os
 from typing import Optional
 
 # Third-party
 from temporalio.client import Client
-import logging
 
 # ================================== Global Variables ========================= #
 _temporal_client: Optional[Client] = None
+logger = logging.getLogger(__name__)
 
 
 # ================================== Functions ================================ #
@@ -30,9 +31,9 @@ async def get_temporal_client() -> Client:
             # Get connection details from environment variable
             temporal_host = os.getenv("TEMPORAL_HOST", "localhost:7233")
             _temporal_client = await Client.connect(temporal_host)
-                logging.getLogger(__name__).info(f"Connected to Temporal server at {temporal_host}")
+            logger.info(f"Connected to Temporal server at {temporal_host}")
         except Exception as e:
-                logging.getLogger(__name__).error(f"Failed to connect to Temporal server: {e}")
+            logger.error(f"Failed to connect to Temporal server: {e}")
             raise RuntimeError(f"Failed to connect to Temporal server: {e}")
 
     return _temporal_client
