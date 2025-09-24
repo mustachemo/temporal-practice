@@ -51,7 +51,6 @@ async def start_temporal_worker(cfg: DictConfig) -> None:
                 store_data_activity,
             ],
             max_concurrent_activities=cfg.temporal.worker.max_concurrent_activities,
-            workflow_runner=UnsandboxedWorkflowRunner(),
         )
 
         logging.getLogger(__name__).info("Temporal worker configured and starting")
