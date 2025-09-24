@@ -3,13 +3,14 @@
 # ================================== Imports ================================== #
 # Standard Library
 import asyncio
+import os
 from typing import Any
 
 # Third-party
 from temporalio.client import Client
-from temporalio.worker import Worker
+from temporalio.worker import Worker, UnsandboxedWorkflowRunner
 from omegaconf import DictConfig
-from loguru import logger
+import logging
 
 # Local Application
 from src.workflows.simple_workflow import (
@@ -28,11 +29,14 @@ async def start_temporal_worker(cfg: DictConfig) -> None:
         cfg: Hydra configuration object.
     """
     try:
-        logger.info("Starting Temporal worker")
+        logging.getLogger(__name__).info("Starting Temporal worker")
 
         # Connect to Temporal server
+        temporal_address = os.getenv(
+            "TEMPORAL_HOST", f"{cfg.temporal.server.host}:{cfg.temporal.server.port}"
+        )
         client = await Client.connect(
-            f"{cfg.temporal.server.host}:{cfg.temporal.server.port}",
+            temporal_address,
             namespace=cfg.temporal.server.namespace,
         )
 
@@ -47,16 +51,15 @@ async def start_temporal_worker(cfg: DictConfig) -> None:
                 store_data_activity,
             ],
             max_concurrent_activities=cfg.temporal.worker.max_concurrent_activities,
-            max_concurrent_workflows=cfg.temporal.worker.max_concurrent_workflows,
         )
 
-        logger.info("Temporal worker configured and starting")
+        logging.getLogger(__name__).info("Temporal worker configured and starting")
 
         # Start worker (this will run indefinitely)
         await worker.run()
 
     except Exception as e:
-        logger.error(f"Failed to start Temporal worker: {e}")
+        logging.getLogger(__name__).error(f"Failed to start Temporal worker: {e}")
         raise
 
 
@@ -69,7 +72,7 @@ async def run_worker_standalone(cfg: DictConfig) -> None:
     try:
         await start_temporal_worker(cfg)
     except KeyboardInterrupt:
-        logger.info("Temporal worker stopped by user")
+        logging.getLogger(__name__).info("Temporal worker stopped by user")
     except Exception as e:
-        logger.error(f"Temporal worker failed: {e}")
+        logging.getLogger(__name__).error(f"Temporal worker failed: {e}")
         raise

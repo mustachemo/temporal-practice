@@ -10,17 +10,20 @@ RUN apt-get update && apt-get install -y \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy requirements and install Python dependencies
-COPY pyproject.toml ./
+# Copy all source files
+COPY . .
+
+# Install Python dependencies
 RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir -e .
 
-# Copy source code
-COPY src/ ./src/
-COPY conf/ ./conf/
-
 # Production stage
 FROM python:3.11-slim as production
+
+# Install runtime dependencies
+RUN apt-get update && apt-get install -y \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
 
 # Create non-root user
 RUN groupadd -r appuser && useradd -r -g appuser appuser
@@ -35,6 +38,7 @@ COPY --from=builder /usr/local/bin /usr/local/bin
 # Copy application code
 COPY --from=builder /app/src ./src
 COPY --from=builder /app/conf ./conf
+COPY --from=builder /app/scripts ./scripts
 
 # Create necessary directories
 RUN mkdir -p logs outputs && \

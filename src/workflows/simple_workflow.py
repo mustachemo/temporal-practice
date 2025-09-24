@@ -7,7 +7,6 @@ from typing import Any, Dict
 
 # Third-party
 from temporalio import workflow, activity
-from loguru import logger
 
 # Local Application
 from src.models.workflow import WorkflowInput, WorkflowResult
@@ -19,7 +18,8 @@ class SimpleWorkflow:
     """Simple workflow demonstrating basic Temporal patterns."""
 
     def __init__(self) -> None:
-        self.logger = workflow.logger()
+        # Note: workflow.logger() can only be called within workflow methods, not in __init__
+        pass
 
     @workflow.run
     async def run(self, input_data: WorkflowInput) -> WorkflowResult:
@@ -32,20 +32,20 @@ class SimpleWorkflow:
             Workflow result with success status and data.
         """
         try:
-            self.logger.info(
+            workflow.logger.info(
                 f"Starting simple workflow for request {input_data.request_id}"
             )
 
             # Execute workflow steps
             result = await self._execute_workflow_steps(input_data)
 
-            self.logger.info(
+            workflow.logger.info(
                 f"Simple workflow completed successfully for {input_data.request_id}"
             )
             return WorkflowResult(success=True, result_data=result)
 
         except Exception as e:
-            self.logger.error(
+            workflow.logger.error(
                 f"Simple workflow failed for {input_data.request_id}: {e}"
             )
             return WorkflowResult(success=False, error_message=str(e))
@@ -107,7 +107,7 @@ async def validate_input_activity(parameters: Dict[str, Any]) -> Dict[str, Any]:
     Returns:
         Validation result dictionary.
     """
-    logger.info("Validating input parameters")
+    activity.logger.info("Validating input parameters")
 
     # Simple validation logic
     if not parameters:
@@ -129,10 +129,11 @@ async def process_data_activity(parameters: Dict[str, Any]) -> Dict[str, Any]:
     Returns:
         Processing result dictionary.
     """
-    logger.info("Processing data")
+    activity.logger.info("Processing data")
 
     # Simulate some processing
     from datetime import datetime, timezone
+
     processed_data = {
         "original": parameters,
         "processed_at": datetime.now(timezone.utc).isoformat(),
@@ -152,10 +153,11 @@ async def store_data_activity(processed_data: Dict[str, Any]) -> Dict[str, Any]:
     Returns:
         Storage result dictionary.
     """
-    logger.info("Storing processed data")
+    activity.logger.info("Storing processed data")
 
     # Simulate storage
     from datetime import datetime, timezone
+
     storage_id = f"storage_{datetime.now(timezone.utc).timestamp()}"
 
     return {

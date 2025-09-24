@@ -10,7 +10,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from omegaconf import DictConfig
-from loguru import logger
+import logging
 
 # Local Application
 from src.api.routes import workflows, health
@@ -22,10 +22,10 @@ from src.models.workflow import ErrorResponse
 async def lifespan(app: FastAPI):
     """Application lifespan manager."""
     # Startup
-    logger.info("FastAPI application started")
+    logging.getLogger(__name__).info("FastAPI application started")
     yield
     # Shutdown
-    logger.info("FastAPI application shutting down")
+    logging.getLogger(__name__).info("FastAPI application shutting down")
 
 
 def create_app(cfg: DictConfig) -> FastAPI:
@@ -64,7 +64,6 @@ def create_app(cfg: DictConfig) -> FastAPI:
     app.include_router(workflows.router, prefix="/api/v1")
     app.include_router(health.router, prefix="/api/v1")
 
-
     return app
 
 
@@ -79,7 +78,7 @@ def setup_exception_handlers(app: FastAPI) -> None:
     @app.exception_handler(HTTPException)
     async def http_exception_handler(request: Any, exc: HTTPException) -> JSONResponse:
         """Handle HTTP exceptions with consistent error format."""
-        logger.error(f"HTTP error {exc.status_code}: {exc.detail}")
+        logging.getLogger(__name__).error(f"HTTP error {exc.status_code}: {exc.detail}")
         return JSONResponse(
             status_code=exc.status_code,
             content=ErrorResponse(
@@ -92,7 +91,7 @@ def setup_exception_handlers(app: FastAPI) -> None:
     @app.exception_handler(Exception)
     async def general_exception_handler(request: Any, exc: Exception) -> JSONResponse:
         """Handle unexpected exceptions."""
-        logger.error(f"Unexpected error: {exc!r}", exc_info=True)
+        logging.getLogger(__name__).exception("Unexpected error")
         return JSONResponse(
             status_code=500,
             content=ErrorResponse(

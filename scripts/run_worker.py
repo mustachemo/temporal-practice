@@ -7,25 +7,29 @@ import asyncio
 # Third-party
 import hydra
 from omegaconf import DictConfig
-from loguru import logger
+import logging
 
 # Local Application
+import sys
+import os
+
+sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
+
 from src.workers.temporal_worker import run_worker_standalone
-from src.utils.logging import setup_logger
 
 
 # ================================== Functions ================================ #
-@hydra.main(config_path="../conf", config_name="config", version_base=None)
+@hydra.main(config_path="/app/conf/config", config_name="config", version_base=None)
 def main(cfg: DictConfig) -> None:
     """Main function to run the Temporal worker.
 
     Args:
         cfg: Hydra configuration object.
     """
-    # Setup logging
-    setup_logger()
+    # Setup basic logging for worker process
+    logging.basicConfig(level=logging.INFO)
 
-    logger.info("Starting Temporal worker process")
+    logging.getLogger(__name__).info("Starting Temporal worker process")
 
     # Run the worker
     asyncio.run(run_worker_standalone(cfg))

@@ -8,7 +8,7 @@ from typing import Any, Dict
 # Third-party
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 from temporalio.client import Client
-from loguru import logger
+import logging
 
 # Local Application
 from src.models.workflow import (
@@ -18,6 +18,7 @@ from src.models.workflow import (
     ErrorResponse,
 )
 from src.services.temporal_service import get_temporal_client
+from src.workflows.simple_workflow import SimpleWorkflow
 
 # ================================== Router Setup ============================= #
 router = APIRouter(prefix="/workflows", tags=["workflows"])
@@ -44,14 +45,25 @@ async def start_workflow(
         HTTPException: If workflow start fails.
     """
     try:
-        logger.info(
+        logging.getLogger(__name__).info(
             f"Starting workflow: {request.workflow_type} for user {request.user_id}"
         )
 
         # Start workflow asynchronously
+        # Map workflow type string to actual workflow class
+        workflow_class = SimpleWorkflow  # For now, only support SimpleWorkflow
+
+        # Create WorkflowInput object from request data
+        from src.models.workflow import WorkflowInput
+        workflow_input = WorkflowInput(
+            request_id=f"{request.workflow_type}_{request.user_id}_{datetime.now().timestamp()}",
+            user_id=request.user_id,
+            parameters=request.input_data,
+        )
+
         workflow_handle = await client.start_workflow(
-            workflow_type=request.workflow_type,
-            args=[request.input_data],
+            workflow_class,
+            args=[workflow_input],
             id=f"{request.workflow_type}_{request.user_id}_{datetime.now().timestamp()}",
             task_queue="workflow-task-queue",
         )
@@ -69,7 +81,7 @@ async def start_workflow(
         )
 
     except Exception as e:
-        logger.error(f"Failed to start workflow: {e}")
+        logging.getLogger(__name__).error(f"Failed to start workflow: {e}")
         raise HTTPException(
             status_code=500, detail=f"Failed to start workflow: {str(e)}"
         )
@@ -103,7 +115,7 @@ async def get_workflow_status(
         )
 
     except Exception as e:
-        logger.error(f"Failed to get workflow status: {e}")
+        logging.getLogger(__name__).error(f"Failed to get workflow status: {e}")
         raise HTTPException(status_code=404, detail=f"Workflow {workflow_id} not found")
 
 
@@ -133,7 +145,7 @@ async def signal_workflow(
         return {"message": "Signal sent successfully"}
 
     except Exception as e:
-        logger.error(f"Failed to send signal: {e}")
+        logging.getLogger(__name__).error(f"Failed to send signal: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to send signal: {str(e)}")
 
 
@@ -160,7 +172,7 @@ async def get_workflow_result(
         return {"workflow_id": workflow_id, "result": result, "status": "COMPLETED"}
 
     except Exception as e:
-        logger.error(f"Failed to get workflow result: {e}")
+        logging.getLogger(__name__).error(f"Failed to get workflow result: {e}")
         raise HTTPException(
             status_code=500, detail=f"Failed to get workflow result: {str(e)}"
         )
@@ -174,4 +186,4 @@ async def _log_workflow_start(workflow_id: str, workflow_type: str) -> None:
         workflow_id: Unique identifier for the workflow.
         workflow_type: Type of workflow being started.
     """
-    logger.info(f"Workflow {workflow_id} of type {workflow_type} started")
+    logging.getLogger(__name__).info(f"Workflow {workflow_id} of type {workflow_type} started")

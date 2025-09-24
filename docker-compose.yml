@@ -1,0 +1,153 @@
+services:
+  # PostgreSQL Database
+  postgresql:
+    image: postgres:17-alpine
+    container_name: temporal-postgresql
+    environment:
+      POSTGRES_DB: temporal
+      POSTGRES_USER: temporal
+      POSTGRES_PASSWORD: temporal
+      POSTGRES_MULTIPLE_DATABASES: temporal,temporal_visibility
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgresql_data:/var/lib/postgresql/data
+      - ./docker/init-db.sh:/docker-entrypoint-initdb.d/init-db.sh
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U temporal -d temporal"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - temporal-network
+
+  # Temporal Server
+  temporal:
+    image: temporalio/auto-setup:1.28.1
+    container_name: temporal-server
+    depends_on:
+      postgresql:
+        condition: service_healthy
+    environment:
+      - DB=postgres12
+      - DB_PORT=5432
+      - POSTGRES_USER=temporal
+      - POSTGRES_PWD=temporal
+      - POSTGRES_SEEDS=postgresql
+      - POSTGRES_DB=temporal
+      - POSTGRES_VISIBILITY_DB=temporal_visibility
+      - DYNAMIC_CONFIG_FILE_PATH=/etc/temporal/config/dynamicconfig/development-sql.yaml
+    ports:
+      - "7233:7233"
+    volumes:
+      - ./docker/temporal-config:/etc/temporal/config/dynamicconfig
+    # healthcheck:
+    #   test: ["CMD-SHELL", "temporal cluster health --address localhost:7233 | grep -q SERVING || exit 1"]
+    #   interval: 15s
+    #   timeout: 10s
+    #   retries: 8
+    #   start_period: 60s
+    networks:
+      - temporal-network
+
+  # Temporal UI
+  temporal-ui:
+    image: temporalio/ui:2.40.1
+    container_name: temporal-ui
+    depends_on:
+      - temporal
+    environment:
+      - TEMPORAL_ADDRESS=temporal:7233
+      - TEMPORAL_CORS_ORIGINS=http://localhost:3000
+    ports:
+      - "8080:8080"
+    networks:
+      - temporal-network
+
+  # Redis (for caching and session storage)
+  redis:
+    image: redis:8-alpine
+    container_name: temporal-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - temporal-network
+
+  # FastAPI Application
+  api:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    container_name: temporal-api
+    depends_on:
+      - temporal
+      - postgresql
+      - redis
+    environment:
+      - ENVIRONMENT=development
+      - DATABASE_URL=postgresql://temporal:temporal@postgresql:5432/temporal
+      - REDIS_URL=redis://redis:6379/0
+      - TEMPORAL_HOST=temporal:7233
+      - LOG_LEVEL=INFO
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./src:/app/src
+      - ./conf:/app/conf
+      - ./logs:/app/logs
+    command: ["python", "-m", "src.main", "--config-name=config", "environment=development"]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/health/"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    networks:
+      - temporal-network
+
+  # Temporal Worker
+  worker:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    container_name: temporal-worker
+    depends_on:
+      - temporal
+      - postgresql
+      - redis
+    environment:
+      - ENVIRONMENT=development
+      - DATABASE_URL=postgresql://temporal:temporal@postgresql:5432/temporal
+      - REDIS_URL=redis://redis:6379/0
+      - TEMPORAL_HOST=temporal:7233
+      - LOG_LEVEL=INFO
+    volumes:
+      - ./src:/app/src
+      - ./conf:/app/conf
+      - ./logs:/app/logs
+    command: ["python", "scripts/run_worker.py", "--config-name=config", "environment=development"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import requests; requests.get('http://api:8000/api/v1/health/')"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    networks:
+      - temporal-network
+
+volumes:
+  postgresql_data:
+    driver: local
+  redis_data:
+    driver: local
+
+networks:
+  temporal-network:
+    driver: bridge

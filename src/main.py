@@ -7,18 +7,16 @@ from pathlib import Path
 
 # Third-party
 import hydra
-from loguru import logger
 from omegaconf import DictConfig, OmegaConf
-from rich.console import Console
+import logging
 
 # Local Application
 from src.api.main import create_app
-from src.utils.logging import setup_logger
 from src.workers.temporal_worker import start_temporal_worker
 
 
 # ================================== Functions ================================ #
-@hydra.main(config_path="../conf", config_name="config", version_base=None)
+@hydra.main(config_path="/app/conf/config", config_name="config", version_base=None)
 def main(cfg: DictConfig) -> None:
     """Main function orchestrated by Hydra.
 
@@ -26,19 +24,18 @@ def main(cfg: DictConfig) -> None:
         cfg: The configuration object populated by Hydra.
     """
     # -------------------------- Initialization -------------------------- #
-    console = Console()
-    setup_logger(Path("logs/app.log"))
-
-    logger.info(f"Starting [bold cyan]{cfg.app_name}[/bold cyan] v{cfg.version}")
-    logger.debug(f"Configuration:\n{OmegaConf.to_yaml(cfg)}")
+    logging.basicConfig(level=logging.INFO)
+    logging.getLogger(__name__).info(
+        f"Starting {cfg.app.name if 'app' in cfg else cfg.app_name} v{cfg.app.version if 'app' in cfg else cfg.version}"
+    )
+    logging.getLogger(__name__).debug(f"Configuration:\n{OmegaConf.to_yaml(cfg)}")
 
     # -------------------------- Core Logic ------------------------------ #
     try:
         # Create FastAPI app
         app = create_app(cfg)
 
-        # Start Temporal worker in background
-        asyncio.create_task(start_temporal_worker(cfg))
+        # Note: Temporal worker should be run separately
 
         # Start FastAPI server
         import uvicorn
@@ -53,10 +50,7 @@ def main(cfg: DictConfig) -> None:
         )
 
     except Exception as e:
-        logger.opt(exception=True).critical("Application startup failed.")
-        console.print(
-            "[bold red]A critical error occurred. Check the logs for details.[/bold red]"
-        )
+        logging.getLogger(__name__).exception("Application startup failed")
         raise
 
 

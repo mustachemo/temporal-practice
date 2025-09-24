@@ -1,9 +1,9 @@
 defaults:
-  - app: app
-  - temporal: temporal
-  - database: database
-  - logging: logging
-  - api: api
+  - app
+  - temporal
+  - database
+  - logging
+  - api
   - _self_
 
 # Global settings
